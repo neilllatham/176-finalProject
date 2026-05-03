@@ -37,12 +37,12 @@ function IconRoiValue({ className }) {
   )
 }
 
-function IconHelp({ className = '' }) {
+function IconGovernance({ className }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
       <path
         fill="currentColor"
-        d="M11 17h2v2h-2v-2zm1-13a4 4 0 013.9 5.1l-1 .3A3 3 0 009 13H7a5 5 0 019.3-3.2 2 2 0 001.9-4.3A6 6 0 008 17h2a4 4 0 014-7z"
+        d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm0-4H7v-2h7v2zm3.75-3.96l-1.41 1.41-3.54-3.54 1.41-1.41 2.13 2.12 4.24-4.24 1.41 1.41-5.24 5.25z"
       />
     </svg>
   )
@@ -50,13 +50,9 @@ function IconHelp({ className = '' }) {
 
 function parseMoney(s) {
   if (s === '' || s === null || s === undefined) return 0
-  const n = Number(String(s).replace(/,/g, '').trim())
-  return Number.isFinite(n) ? n : 0
-}
-
-function parsePercent(s) {
-  if (s === '' || s === null || s === undefined) return 0
-  const n = Number(String(s).trim())
+  const cleaned = String(s).replace(/[$,\s]/g, '').trim()
+  if (cleaned === '') return 0
+  const n = Number(cleaned)
   return Number.isFinite(n) ? n : 0
 }
 
@@ -69,179 +65,52 @@ function formatCurrency(n) {
   }).format(Math.round(n))
 }
 
-/** Cumulative ROI curve knots; t = fractional years elapsed (0 start, 1–5 year-ends). */
-function buildRoiCurve(rows, annualBenefits) {
-  const points = [{ t: 0, cumulativeCost: 0, cumulativeBenefit: 0 }]
-  for (const r of rows) {
-    points.push({
-      t: r.year,
-      cumulativeCost: r.cumulativeCost,
-      cumulativeBenefit: annualBenefits * r.year,
-    })
-  }
-  return points
+/** Digits only for storing in controlled money fields. */
+function normalizeMoneyDigits(raw) {
+  return String(raw ?? '').replace(/\D/g, '')
 }
 
-/**
- * First recovery break-even along piecewise-linear curve (start at t=0, then year-end knots).
- * Chooses the earliest crossing where cumulative benefits recover from underwater (gap < 0) to parity.
- */
-function findRoiBreakeven(curvePoints) {
-  const eps = 1e-6
-  let earliest = null
-  for (let i = 0; i < curvePoints.length - 1; i++) {
-    const p0 = curvePoints[i]
-    const p1 = curvePoints[i + 1]
-    const g0 = p0.cumulativeBenefit - p0.cumulativeCost
-    const g1 = p1.cumulativeBenefit - p1.cumulativeCost
-    const denom = g1 - g0
-    if (Math.abs(denom) < 1e-12 || g1 <= g0 + eps) continue
-    const u = -g0 / denom
-    if (u <= eps || u > 1 + eps) continue
-    if (!(g0 < -eps && g1 >= -eps)) continue
-    const tStar = p0.t + Math.min(1, Math.max(0, u)) * (p1.t - p0.t)
-    const amt =
-      p0.cumulativeBenefit +
-      Math.min(1, Math.max(0, u)) *
-        (p1.cumulativeBenefit - p0.cumulativeBenefit)
-    if (!earliest || tStar < earliest.tStar - eps) earliest = { tStar, amount: amt }
-  }
-  return earliest
+/** Show $1,234 when idle; plain digits while the field is focused. */
+function moneyFieldDisplay(stored, focusKey, fieldKey) {
+  if (focusKey === fieldKey) return normalizeMoneyDigits(stored)
+  if (stored === '' || stored === undefined || stored === null) return ''
+  return formatCurrency(parseMoney(stored))
 }
 
-function RoiBreakevenChart({ curvePoints, breakeven }) {
-  const w = 640
-  const h = 320
-  const padL = 56
-  const padR = 28
-  const padT = 28
-  const padB = 54
-  const innerW = w - padL - padR
-  const innerH = h - padT - padB
-  const axisTMin = 0
-  const axisTMax = 5
-
-  const maxValue = curvePoints.reduce(
-    (m, p) =>
-      Math.max(m, p.cumulativeCost, p.cumulativeBenefit, breakeven?.amount ?? 0),
-    1,
-  )
-  const maxY = maxValue <= 0 ? 1 : maxValue * 1.08
-
-  function xAt(tVal) {
-    const u = (tVal - axisTMin) / (axisTMax - axisTMin)
-    return padL + u * innerW
-  }
-  function yAt(vVal) {
-    return padT + innerH * (1 - Math.min(Math.max(vVal / maxY, 0), 1))
-  }
-
-  const pathCost =
-    curvePoints.map((p) => `${xAt(p.t)},${yAt(p.cumulativeCost)}`).join(' ')
-  const pathBen =
-    curvePoints.map((p) => `${xAt(p.t)},${yAt(p.cumulativeBenefit)}`).join(' ')
-
-  const crossX = breakeven ? xAt(breakeven.tStar) : null
-  const crossY = breakeven ? yAt(breakeven.amount) : null
-
+function CollapsibleNavHeader({
+  titleId,
+  title,
+  titleClassName,
+  defaultOpen = true,
+  children,
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const panelId = `${titleId}-collapsible`
   return (
-    <svg
-      className="roi-breakeven-chart"
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label="ROI break-even: cumulative cost versus cumulative benefit over time"
-    >
-      <title>Cumulative migration cost versus cumulative benefits</title>
-      {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
-        const vk = frac * maxY
-        const y = padT + innerH * (1 - frac)
-        return (
-          <g key={frac}>
-            <line
-              x1={padL}
-              y1={y}
-              x2={padL + innerW}
-              y2={y}
-              className="chart-grid-line"
-            />
-            <text
-              x={padL - 8}
-              y={y + 4}
-              textAnchor="end"
-              className="chart-axis-label"
-            >
-              {vk >= 1_000_000
-                ? `${(vk / 1_000_000).toFixed(1)}M`
-                : vk >= 1000
-                  ? `${Math.round(vk / 1000)}k`
-                  : Math.round(vk)}
-            </text>
-          </g>
-        )
-      })}
-      {[0, 1, 2, 3, 4, 5].map((tick) => {
-        const xv = xAt(tick)
-        return (
-          <g key={`tx-${tick}`}>
-            <line
-              x1={xv}
-              y1={padT + innerH}
-              x2={xv}
-              y2={padT + innerH + 6}
-              className="chart-axis-tick-line"
-            />
-            <text
-              x={xv}
-              y={h - padB + 34}
-              textAnchor="middle"
-              className="chart-axis-label chart-axis-year"
-            >
-              {tick === 0 ? 'Start' : `Year ${tick}`}
-            </text>
-          </g>
-        )
-      })}
-      <text
-        x={padL + innerW / 2}
-        y={18}
-        textAnchor="middle"
-        className="chart-title"
-      >
-        Cumulative dollars (USD)
-      </text>
-      <polyline
-        className="roi-line roi-line-benefit"
-        points={pathBen}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polyline
-        className="roi-line roi-line-cost"
-        points={pathCost}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {breakeven && crossX != null && crossY != null ? (
-        <g aria-hidden="true">
-          <line
-            x1={crossX}
-            y1={crossY}
-            x2={crossX}
-            y2={padT + innerH}
-            className="breakeven-marker-line"
-          />
-          <circle
-            cx={crossX}
-            cy={crossY}
-            r={5}
-            className="breakeven-marker-dot"
-          />
-        </g>
-      ) : null}
-    </svg>
+    <>
+      <div className="nav-collapsible-header">
+        <h2 id={titleId} className={titleClassName}>
+          {title}
+        </h2>
+        <button
+          type="button"
+          className="nav-expand-btn"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+        >
+          <span className="sr-only">
+            {open ? 'Collapse section' : 'Expand section'}
+          </span>
+          <span className="nav-expand-btn-icon" aria-hidden>
+            {open ? '−' : '+'}
+          </span>
+        </button>
+      </div>
+      <div id={panelId} hidden={!open} className="nav-collapsible-body">
+        {children}
+      </div>
+    </>
   )
 }
 
@@ -342,7 +211,7 @@ function GrowthChart({ rows, maxSeries }) {
               textAnchor="middle"
               className="chart-axis-label chart-axis-year"
             >
-              Year {row.year}
+              Yr {row.year}
             </text>
           </g>
         )
@@ -416,14 +285,48 @@ function RoiValuePanel() {
         </p>
       </header>
       <section className="panel-card" aria-labelledby="roi-panel-placeholder-heading">
-        <h2 id="roi-panel-placeholder-heading" className="card-heading">
-          Panel 2 (placeholder)
-        </h2>
-        <p className="card-lead">
-          This workspace will host ROI and value analysis—scenario comparison,
-          sensitivity views, and executive-ready summaries tied to the figures
-          from Budget Planning and Cost Estimation.
+        <CollapsibleNavHeader
+          titleId="roi-panel-placeholder-heading"
+          titleClassName="card-heading"
+          title="Panel 2 (placeholder)"
+        >
+          <p className="card-lead">
+            This workspace will host ROI and value analysis—scenario comparison,
+            sensitivity views, and executive-ready summaries tied to the figures
+            from Budget Planning and Cost Estimation.
+          </p>
+        </CollapsibleNavHeader>
+      </section>
+    </main>
+  )
+}
+
+function GovernanceCompliancePanel() {
+  return (
+    <main className="migration-panel">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud migration simulator</p>
+        <p className="panel-title-context">Controls &amp; assurance</p>
+        <p className="panel-subtitle">
+          Track policies, audit readiness, and regulatory alignment for the
+          casualty claims migration program.
         </p>
+      </header>
+      <section
+        className="panel-card"
+        aria-labelledby="governance-panel-placeholder-heading"
+      >
+        <CollapsibleNavHeader
+          titleId="governance-panel-placeholder-heading"
+          titleClassName="card-heading"
+          title="Panel 3 (placeholder)"
+        >
+          <p className="card-lead">
+            This workspace will host governance and compliance views—control
+            matrices, evidence trails, and sign-off status linked to your
+            migration milestones.
+          </p>
+        </CollapsibleNavHeader>
       </section>
     </main>
   )
@@ -431,6 +334,8 @@ function RoiValuePanel() {
 
 function App() {
   const [activeView, setActiveView] = useState('home')
+  const [moneyFocusKey, setMoneyFocusKey] = useState(null)
+  const [budgetSidebarExpanded, setBudgetSidebarExpanded] = useState(true)
 
   const [opexByYear, setOpexByYear] = useState([
     '250000',
@@ -446,14 +351,6 @@ function App() {
     '75000',
     '50000',
   ])
-  const [annualOpexChangePct, setAnnualOpexChangePct] = useState('')
-  const [annualCapexChangePct, setAnnualCapexChangePct] = useState('')
-  const [annualDowntimeSavings, setAnnualDowntimeSavings] = useState('300000')
-  const [annualProductivitySavings, setAnnualProductivitySavings] =
-    useState('200000')
-  const [annualDataCenterAvoided, setAnnualDataCenterAvoided] =
-    useState('250000')
-
   const rows = useMemo(() => {
     const numericOpex = opexByYear.map(parseMoney)
     const numericCapex = capexByYear.map(parseMoney)
@@ -485,65 +382,14 @@ function App() {
   const totalCapex5 = rows.reduce((acc, r) => acc + r.capex, 0)
   const totalCost5 = totalOpex5 + totalCapex5
 
-  const annualBenefits =
-    parseMoney(annualDowntimeSavings) +
-    parseMoney(annualProductivitySavings) +
-    parseMoney(annualDataCenterAvoided)
-  const totalBenefits5 = annualBenefits * 5
-
-  const roiPct =
-    totalCost5 === 0
-      ? null
-      : ((totalBenefits5 - totalCost5) / totalCost5) * 100
-
   const chartMaxSeries = rows.reduce((m, r) => {
     return Math.max(m, r.opex, r.capex, r.totalCost)
   }, 0)
 
-  const roiCurve = useMemo(
-    () => buildRoiCurve(rows, annualBenefits),
-    [rows, annualBenefits],
-  )
-
-  const breakevenPoint = useMemo(() => {
-    if (annualBenefits <= 0) return null
-    return findRoiBreakeven(roiCurve)
-  }, [roiCurve, annualBenefits])
-
-  const breakevenExplanation = useMemo(() => {
-    if (annualBenefits <= 0) {
-      return {
-        headline: null,
-        body: 'Enter positive annual benefits to chart when cumulative value catches cumulative investment.',
-      }
-    }
-    if (breakevenPoint) {
-      return {
-        headline: `${breakevenPoint.tStar.toFixed(2)} years from program start`,
-        body: `The two cumulative curves intersect at about ${formatCurrency(breakevenPoint.amount)}. Interpolation is linear between year-end balances (start at $0 / $0, then each fiscal year-end).`,
-      }
-    }
-    const last = roiCurve[roiCurve.length - 1]
-    const lastGap = last.cumulativeBenefit - last.cumulativeCost
-    const alwaysAhead = roiCurve.every(
-      (p) => p.t === 0 || p.cumulativeBenefit - p.cumulativeCost >= -1,
-    )
-    if (alwaysAhead && lastGap >= -1) {
-      return {
-        headline: 'No separate recovery crossing',
-        body: 'Benefits meet or exceed costs at every year-end on this path—there is no underwater period to recover from.',
-      }
-    }
-    return {
-      headline: 'Not within five years',
-      body: 'Cumulative costs remain ahead through Year 5 on this model. Raise annual benefits or lower spend to pull break-even left.',
-    }
-  }, [annualBenefits, breakevenPoint, roiCurve])
-
   function handleOpexChange(index, raw) {
     setOpexByYear((prev) => {
       const next = [...prev]
-      next[index] = raw
+      next[index] = normalizeMoneyDigits(raw)
       return next
     })
   }
@@ -551,37 +397,23 @@ function App() {
   function handleCapexChange(index, raw) {
     setCapexByYear((prev) => {
       const next = [...prev]
-      next[index] = raw
+      next[index] = normalizeMoneyDigits(raw)
       return next
     })
-  }
-
-  function applyAnnualPercentages() {
-    const rO = parsePercent(annualOpexChangePct) / 100
-    const rC = parsePercent(annualCapexChangePct) / 100
-    const baseO = parseMoney(opexByYear[0])
-    const baseC = parseMoney(capexByYear[0])
-    setOpexByYear(
-      YEARS.map((_, i) =>
-        String(Math.round(i === 0 ? baseO : baseO * (1 + rO) ** i))
-      )
-    )
-    setCapexByYear(
-      YEARS.map((_, i) =>
-        String(Math.round(i === 0 ? baseC : baseC * (1 + rC) ** i))
-      )
-    )
   }
 
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
   const isRoi = activeView === 'roi'
+  const isGovernance = activeView === 'governance'
   const topHeaderTitle =
     activeView === 'home'
       ? 'Technology Benefit Simulator'
       : activeView === 'budget'
         ? 'Budget Planning and Cost Estimation'
-        : 'ROI and Value Analysis'
+        : activeView === 'roi'
+          ? 'ROI and Value Analysis'
+          : 'Governance & Compliance'
 
   return (
     <div className="app-shell">
@@ -609,16 +441,122 @@ function App() {
               <IconHome className="sidebar-nav-svg" />
               <span className="sidebar-nav-label">Overview</span>
             </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isBudget ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('budget')}
+            <div
+              className={`sidebar-nav-budget-row${isBudget ? ' sidebar-nav-budget-row-active' : ''}`}
             >
-              <IconBudget className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                Budget Planning and Cost Estimation
-              </span>
-            </button>
+              <button
+                type="button"
+                className="sidebar-nav-item sidebar-nav-item-main"
+                onClick={() => setActiveView('budget')}
+              >
+                <IconBudget className="sidebar-nav-svg" />
+                <span className="sidebar-nav-label">
+                  Budget Planning and Cost Estimation
+                </span>
+              </button>
+              {isBudget ? (
+                <button
+                  type="button"
+                  className="nav-expand-btn nav-expand-btn-budget-row"
+                  onClick={() =>
+                    setBudgetSidebarExpanded((expanded) => !expanded)
+                  }
+                  aria-expanded={budgetSidebarExpanded}
+                  aria-controls="sidebar-budget-panel"
+                >
+                  <span className="sr-only">
+                    {budgetSidebarExpanded
+                      ? 'Collapse budget inputs'
+                      : 'Expand budget inputs'}
+                  </span>
+                  <span className="nav-expand-btn-icon" aria-hidden>
+                    {budgetSidebarExpanded ? '−' : '+'}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+            {isBudget && budgetSidebarExpanded ? (
+              <div
+                id="sidebar-budget-panel"
+                className="sidebar-budget-inputs"
+                role="region"
+                aria-labelledby="sidebar-opex-capex-heading"
+              >
+                <h2
+                  id="sidebar-opex-capex-heading"
+                  className="sidebar-budget-inputs-title"
+                >
+                  Yearly OpEx &amp; CapEx
+                </h2>
+                <p className="sidebar-budget-inputs-lead">
+                  Planned spend by year (USD).
+                </p>
+                <div className="sidebar-year-table-wrap">
+                  <table className="sidebar-year-grid-table">
+                    <thead>
+                      <tr>
+                        <th
+                          scope="col"
+                          className="sidebar-year-th-corner"
+                          aria-label="Fiscal year"
+                        />
+                        <th scope="col" className="sidebar-year-th-money">
+                          OpEx ($)
+                        </th>
+                        <th scope="col" className="sidebar-year-th-money">
+                          CapEx ($)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {YEARS.map((y, i) => (
+                        <tr key={y}>
+                          <th scope="row" className="sidebar-year-th-year">
+                            Yr {y}
+                          </th>
+                          <td className="sidebar-year-td-input">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="field field-money field-money-sidebar"
+                              value={moneyFieldDisplay(
+                                opexByYear[i],
+                                moneyFocusKey,
+                                `opex-${i}`,
+                              )}
+                              onChange={(e) =>
+                                handleOpexChange(i, e.target.value)
+                              }
+                              onFocus={() => setMoneyFocusKey(`opex-${i}`)}
+                              onBlur={() => setMoneyFocusKey(null)}
+                              aria-label={`Yr ${y} OpEx in dollars`}
+                            />
+                          </td>
+                          <td className="sidebar-year-td-input">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="field field-money field-money-sidebar"
+                              value={moneyFieldDisplay(
+                                capexByYear[i],
+                                moneyFocusKey,
+                                `capex-${i}`,
+                              )}
+                              onChange={(e) =>
+                                handleCapexChange(i, e.target.value)
+                              }
+                              onFocus={() => setMoneyFocusKey(`capex-${i}`)}
+                              onBlur={() => setMoneyFocusKey(null)}
+                              aria-label={`Yr ${y} CapEx in dollars`}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
             <button
               type="button"
               className={`sidebar-nav-item${isRoi ? ' sidebar-nav-item-active' : ''}`}
@@ -629,29 +567,17 @@ function App() {
                 ROI and Value Analysis
               </span>
             </button>
-          </nav>
-        </div>
-
-        <div className="sidebar-footer">
-          <p className="sidebar-footer-caption">Support</p>
-          <button type="button" className="sidebar-footer-link sidebar-footer-link-soft">
-            <IconHelp />
-            Help Center
-          </button>
-          <button type="button" className="sidebar-footer-link sidebar-footer-link-soft">
-            Feedback
-          </button>
-          <div className="sidebar-profile">
-            <div className="sidebar-profile-avatar" aria-hidden>
-              CL
-            </div>
-            <div className="sidebar-profile-meta">
-              <span className="sidebar-profile-name">Claims Lead</span>
-              <span className="sidebar-profile-email">
-                casualty.claims@yourorg.com
+            <button
+              type="button"
+              className={`sidebar-nav-item${isGovernance ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('governance')}
+            >
+              <IconGovernance className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Governance &amp; Compliance
               </span>
-            </div>
-          </div>
+            </button>
+          </nav>
         </div>
       </aside>
 
@@ -675,257 +601,98 @@ function App() {
       <header className="panel-header panel-header-context">
         <p className="migration-eyebrow">Cloud migration simulator</p>
         <p className="panel-title-context">
-          Budget &amp; Cashflow
+          Opex and Capex Costs
         </p>
         <p className="panel-subtitle">
-          Casualty medical claims processing: estimate OpEx, CapEx, and Cash
-          Flow for migration from legacy data centers to AWS.
+          Update sidebar inputs to refresh cost totals and charts.
         </p>
       </header>
 
-      <section className="panel-card" aria-labelledby="inputs-heading">
-        <h2 id="inputs-heading" className="card-heading">
-          Yearly OpEx &amp; CapEx
-        </h2>
-        <p className="card-lead">
-          Enter planned operating and capital spend for each fiscal year (USD).
-        </p>
-        <div className="year-inputs-table-wrap">
-          <table className="year-inputs-table">
-            <thead>
-              <tr>
-                <th scope="col">Year</th>
-                <th scope="col">OpEx ($)</th>
-                <th scope="col">CapEx ($)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {YEARS.map((y, i) => (
-                <tr key={y}>
-                  <th scope="row">{y}</th>
-                  <td>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="field field-money"
-                      value={opexByYear[i]}
-                      onChange={(e) => handleOpexChange(i, e.target.value)}
-                      aria-label={`Year ${y} OpEx in dollars`}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="field field-money"
-                      value={capexByYear[i]}
-                      onChange={(e) => handleCapexChange(i, e.target.value)}
-                      aria-label={`Year ${y} CapEx in dollars`}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="pct-heading">
-        <h2 id="pct-heading" className="card-heading">
-          Optional annual change (%)
-        </h2>
-        <p className="card-lead">
-          Compound percentage growth applied from Year 1 through Year 5.
-          Replaces Years 2–5 when you apply; edit Year 1 first if needed.
-        </p>
-        <div className="pct-row">
-          <label className="field-label">
-            <span>Annual OpEx change (%)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-pct"
-              value={annualOpexChangePct}
-              onChange={(e) => setAnnualOpexChangePct(e.target.value)}
-              placeholder="e.g. 5"
-            />
-          </label>
-          <label className="field-label">
-            <span>Annual CapEx change (%)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-pct"
-              value={annualCapexChangePct}
-              onChange={(e) => setAnnualCapexChangePct(e.target.value)}
-              placeholder="e.g. -10"
-            />
-          </label>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={applyAnnualPercentages}
+      <section
+        className="budget-nav-card"
+        aria-labelledby="budget-totals-heading"
+      >
+        <CollapsibleNavHeader
+          titleId="budget-totals-heading"
+          titleClassName="budget-nav-collapsible-title"
+          title="Five-year cost totals"
+        >
+          <div
+            className="summary-strip summary-strip-top-cost summary-strip-embedded"
+            aria-label="Five-year OpEx, CapEx, and total cost"
           >
-            Apply to Years 2–5
-          </button>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="roi-inputs-heading">
-        <h2 id="roi-inputs-heading" className="card-heading">
-          ROI assumptions (annual benefit)
-        </h2>
-        <p className="card-lead">
-          Expected recurring benefit after migration — scaled linearly across
-          five years.
-        </p>
-        <div className="assumptions-grid">
-          <label className="field-label">
-            <span>Annual downtime savings ($)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-money"
-              value={annualDowntimeSavings}
-              onChange={(e) => setAnnualDowntimeSavings(e.target.value)}
-            />
-          </label>
-          <label className="field-label">
-            <span>Annual productivity savings ($)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-money"
-              value={annualProductivitySavings}
-              onChange={(e) => setAnnualProductivitySavings(e.target.value)}
-            />
-          </label>
-          <label className="field-label">
-            <span>Annual data center cost avoided ($)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-money"
-              value={annualDataCenterAvoided}
-              onChange={(e) => setAnnualDataCenterAvoided(e.target.value)}
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="summary-strip" aria-label="Five-year summary">
-        <div className="summary-tile">
-          <span className="summary-label">Total 5-yr OpEx</span>
-          <span className="summary-value">{formatCurrency(totalOpex5)}</span>
-        </div>
-        <div className="summary-tile">
-          <span className="summary-label">Total 5-yr CapEx</span>
-          <span className="summary-value">{formatCurrency(totalCapex5)}</span>
-        </div>
-        <div className="summary-tile summary-tile-accent">
-          <span className="summary-label">Total 5-yr cost</span>
-          <span className="summary-value">{formatCurrency(totalCost5)}</span>
-        </div>
-        <div className="summary-tile summary-tile-positive">
-          <span className="summary-label">Total 5-yr benefits</span>
-          <span className="summary-value">{formatCurrency(totalBenefits5)}</span>
-        </div>
-        <div className="summary-tile summary-tile-roi">
-          <span className="summary-label">ROI</span>
-          <span className="summary-value">
-            {roiPct === null ? '—' : `${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(1)}%`}
-          </span>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="cashflow-heading">
-        <h2 id="cashflow-heading" className="card-heading">
-          Cash flow
-        </h2>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Year</th>
-                <th scope="col">OpEx</th>
-                <th scope="col">CapEx</th>
-                <th scope="col">Total cost</th>
-                <th scope="col">Cumulative cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.year}>
-                  <td>{r.year}</td>
-                  <td className="num">{formatCurrency(r.opex)}</td>
-                  <td className="num">{formatCurrency(r.capex)}</td>
-                  <td className="num num-strong">{formatCurrency(r.totalCost)}</td>
-                  <td className="num">{formatCurrency(r.cumulativeCost)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            <div className="summary-tile">
+              <span className="summary-label">Total 5-yr OpEx</span>
+              <span className="summary-value">{formatCurrency(totalOpex5)}</span>
+            </div>
+            <div className="summary-tile">
+              <span className="summary-label">Total 5-yr CapEx</span>
+              <span className="summary-value">{formatCurrency(totalCapex5)}</span>
+            </div>
+            <div className="summary-tile summary-tile-accent">
+              <span className="summary-label">Total 5-yr cost</span>
+              <span className="summary-value">{formatCurrency(totalCost5)}</span>
+            </div>
+          </div>
+        </CollapsibleNavHeader>
       </section>
 
       <section className="panel-card" aria-labelledby="chart-heading">
-        <h2 id="chart-heading" className="card-heading">
-          Cost by year
-        </h2>
-        <p className="card-lead">
-          Grouped comparison: operating expense, capital expense, and total
-          annual cost.
-        </p>
-        <div className="chart-legend">
-          <span className="legend-item">
-            <span className="legend-swatch legend-swatch-opex" /> OpEx
-          </span>
-          <span className="legend-item">
-            <span className="legend-swatch legend-swatch-capex" /> CapEx
-          </span>
-          <span className="legend-item">
-            <span className="legend-swatch legend-swatch-total" /> Total cost
-          </span>
-        </div>
-        <GrowthChart rows={rows} maxSeries={chartMaxSeries} />
+        <CollapsibleNavHeader
+          titleId="chart-heading"
+          titleClassName="card-heading"
+          title="Cost by year"
+        >
+          <p className="card-lead">
+            Grouped comparison: operating expense, capital expense, and total
+            annual cost.
+          </p>
+          <div className="chart-legend">
+            <span className="legend-item">
+              <span className="legend-swatch legend-swatch-opex" /> OpEx
+            </span>
+            <span className="legend-item">
+              <span className="legend-swatch legend-swatch-capex" /> CapEx
+            </span>
+            <span className="legend-item">
+              <span className="legend-swatch legend-swatch-total" /> Total cost
+            </span>
+          </div>
+          <GrowthChart rows={rows} maxSeries={chartMaxSeries} />
+        </CollapsibleNavHeader>
       </section>
 
-      <section className="panel-card" aria-labelledby="breakeven-heading">
-        <h2 id="breakeven-heading" className="card-heading">
-          ROI break-even
-        </h2>
-        <p className="card-lead">
-          Cumulative migration spend versus cumulative benefits (equal annual
-          savings each year). Break-even is the first time benefits catch costs
-          after deployment drags the net position underwater—assuming straight
-          lines between year-end balances.
-        </p>
-        <div className="chart-legend">
-          <span className="legend-item">
-            <span className="legend-line legend-line-benefit" /> Cumulative
-            benefits
-          </span>
-          <span className="legend-item">
-            <span className="legend-line legend-line-cost" /> Cumulative cost
-          </span>
-          {breakevenPoint ? (
-            <span className="legend-item">
-              <span className="legend-line legend-line-breakeven" /> Break-even
-            </span>
-          ) : null}
-        </div>
-        <RoiBreakevenChart
-          curvePoints={roiCurve}
-          breakeven={breakevenPoint}
-        />
-        <div className="breakeven-callout" role="status">
-          {breakevenExplanation.headline ? (
-            <p className="breakeven-callout-head">
-              {breakevenExplanation.headline}
-            </p>
-          ) : null}
-          <p className="breakeven-callout-body">{breakevenExplanation.body}</p>
-        </div>
+      <section className="panel-card" aria-labelledby="cashflow-heading">
+        <CollapsibleNavHeader
+          titleId="cashflow-heading"
+          titleClassName="card-heading"
+          title="Cash flow"
+        >
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Year</th>
+                  <th scope="col">OpEx</th>
+                  <th scope="col">CapEx</th>
+                  <th scope="col">Total cost</th>
+                  <th scope="col">Cumulative cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.year}>
+                    <td>{r.year}</td>
+                    <td className="num">{formatCurrency(r.opex)}</td>
+                    <td className="num">{formatCurrency(r.capex)}</td>
+                    <td className="num num-strong">{formatCurrency(r.totalCost)}</td>
+                    <td className="num">{formatCurrency(r.cumulativeCost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CollapsibleNavHeader>
       </section>
     </main>
         </div>
@@ -938,6 +705,16 @@ function App() {
           style={{ display: isRoi ? 'block' : 'none' }}
         >
           <RoiValuePanel />
+        </div>
+
+        <div
+          className="governance-route"
+          id="governance-route"
+          hidden={!isGovernance}
+          aria-hidden={!isGovernance}
+          style={{ display: isGovernance ? 'block' : 'none' }}
+        >
+          <GovernanceCompliancePanel />
         </div>
         </div>
       </div>
