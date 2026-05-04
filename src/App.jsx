@@ -418,9 +418,9 @@ function AppTopHeader({ showBack, title, onBackToHome }) {
 /* ─────────────────────────────────────────────
    PANEL 4 – Governance & SLA
 ───────────────────────────────────────────── */
-function Panel4Governance() {
+function Panel4Governance({ slaUptime }) {
   const slaRows = [
-    { metric: 'Target uptime SLA', value: '99.9%', note: '≤ 8.76 hrs downtime/yr' },
+    { metric: 'Target uptime SLA', value: '99.9%', note: `≤ 8.76 hrs downtime/yr · Simulator: ${slaUptime.toFixed(3)}% achieved` },
     { metric: 'Incident response (P1)', value: '< 15 min', note: 'Paging + war-room within 15 min' },
     { metric: 'Incident response (P2)', value: '< 1 hr', note: 'Business-hours acknowledgement' },
     { metric: 'Planned maintenance window', value: 'Sun 02:00–04:00 UTC', note: 'Monthly, 4-week notice required' },
@@ -494,10 +494,7 @@ function Panel4Governance() {
 /* ─────────────────────────────────────────────
    PANEL 5 – CI/CD Pipeline Efficiency Simulator
 ───────────────────────────────────────────── */
-function Panel5CiCd() {
-  const [automationPct, setAutomationPct] = useState(50)
-  const [teamSize, setTeamSize] = useState(10)
-
+function Panel5CiCd({ automationPct, setAutomationPct, teamSize, setTeamSize }) {
   // Model: baseline deploy frequency = 2/week per 5 devs
   // automation > 70% unlocks a step-change multiplier
   const baseFreq = (teamSize / 5) * 2
@@ -620,10 +617,7 @@ function Panel5CiCd() {
 /* ─────────────────────────────────────────────
    PANEL 6 – Uptime vs Cost Simulator
 ───────────────────────────────────────────── */
-function Panel6Uptime() {
-  const [redundancy, setRedundancy] = useState(3)
-  const [multiRegion, setMultiRegion] = useState(false)
-
+function Panel6Uptime({ redundancy, setRedundancy, multiRegion, setMultiRegion }) {
   // Non-linear uptime model (each level of redundancy gives diminishing gains)
   const uptimeBase = [95.0, 99.0, 99.5, 99.95, 99.99, 99.999]
   const uptimeSingle = uptimeBase[redundancy - 1]
@@ -887,6 +881,11 @@ function RoiValuePanel() {
 
 function App() {
   const [activeView, setActiveView] = useState('home')
+  // Panel 5 & 6 state lifted to App for cross-panel data flow
+  const [automationPct, setAutomationPct] = useState(50)
+  const [teamSize, setTeamSize] = useState(10)
+  const [redundancy, setRedundancy] = useState(3)
+  const [multiRegion, setMultiRegion] = useState(false)
 
   const [opexByYear, setOpexByYear] = useState([
     '250000',
@@ -1028,6 +1027,33 @@ function App() {
       )
     )
   }
+
+  // ── Cross-panel derived values ─────────────────────────────────
+  const _uptimeBase = [95.0, 99.0, 99.5, 99.95, 99.99, 99.999]
+  const _uptimeDelta = [0, 0.5, 0.3, 0.04, 0.009, 0.0009]
+  const _p6UptimeSingle = _uptimeBase[redundancy - 1]
+  const _p6UptimeMulti = Math.min(99.999, _p6UptimeSingle + _uptimeDelta[redundancy - 1])
+  const p6Uptime = multiRegion ? _p6UptimeMulti : _p6UptimeSingle
+  const p6RegionMult = multiRegion ? 1.85 : 1
+  const p6MonthlyCost = Math.round(5000 * Math.pow(redundancy, 1.7) * p6RegionMult)
+  const p6DowntimeHrs = Math.round(((100 - p6Uptime) / 100) * 8760 * 10) / 10
+
+  const _p5BaseFailure = 25
+  const _p5FailureReduction = automationPct >= 70
+    ? 0.4 + ((automationPct - 70) / 30) * 0.2
+    : (automationPct / 70) * 0.4
+  const p5FailureRate = Math.round(Math.max(3, _p5BaseFailure * (1 - _p5FailureReduction)) * 10) / 10
+  const _p5BaseFreq = (teamSize / 5) * 2
+  const _p5AutoFactor = automationPct >= 70
+    ? 1.5 + ((automationPct - 70) / 30) * 0.4
+    : 0.6 + (automationPct / 70) * 0.4
+  const p5DeployFreq = Math.round(_p5BaseFreq * _p5AutoFactor * 10) / 10
+
+  const suggestedOpexPerYear = p6MonthlyCost * 12
+  const _p6BaselineDowntimeHrs = ((100 - 95.0) / 100) * 8760
+  const suggestedDowntimeSavings = Math.round(Math.max(0, (_p6BaselineDowntimeHrs - p6DowntimeHrs) * 20000) / 1000) * 1000
+  const _p5AvoidsPerYear = Math.round(((_p5BaseFailure - p5FailureRate) / 100) * p5DeployFreq * 52)
+  const suggestedProductivitySavings = Math.round(_p5AvoidsPerYear * 2500 / 1000) * 1000
 
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
@@ -1240,6 +1266,64 @@ function App() {
         </div>
       </section>
 
+      <section className="panel-card sim-suggestions-card" aria-labelledby="sim-suggestions-heading">
+        <h2 id="sim-suggestions-heading" className="card-heading">Simulator suggestions</h2>
+        <p className="card-lead">
+          Live values derived from your <strong>CI/CD</strong> and <strong>Uptime</strong> simulator
+          settings. Click <strong>Apply</strong> to copy a value into the ROI assumptions below.
+        </p>
+        <div className="sim-suggestions-grid">
+          <div className="sim-suggestion-row">
+            <div className="sim-suggestion-meta">
+              <span className="sim-suggestion-label">Annual cloud OpEx</span>
+              <span className="sim-suggestion-source">
+                P6 · Redundancy {redundancy} · {multiRegion ? 'Multi-Region' : 'Single Region'}
+              </span>
+            </div>
+            <span className="sim-suggestion-value">{formatCurrency(suggestedOpexPerYear)}</span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setOpexByYear(YEARS.map(() => String(suggestedOpexPerYear)))}
+            >
+              Apply to all years
+            </button>
+          </div>
+          <div className="sim-suggestion-row">
+            <div className="sim-suggestion-meta">
+              <span className="sim-suggestion-label">Annual downtime savings</span>
+              <span className="sim-suggestion-source">
+                P6 · {p6Uptime.toFixed(3)}% uptime vs 95% baseline · $20,000/hr incident cost
+              </span>
+            </div>
+            <span className="sim-suggestion-value">{formatCurrency(suggestedDowntimeSavings)}</span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setAnnualDowntimeSavings(String(suggestedDowntimeSavings))}
+            >
+              Apply
+            </button>
+          </div>
+          <div className="sim-suggestion-row">
+            <div className="sim-suggestion-meta">
+              <span className="sim-suggestion-label">Annual productivity savings</span>
+              <span className="sim-suggestion-source">
+                P5 · {automationPct}% automation · failure rate {p5FailureRate}% vs 25% baseline
+              </span>
+            </div>
+            <span className="sim-suggestion-value">{formatCurrency(suggestedProductivitySavings)}</span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setAnnualProductivitySavings(String(suggestedProductivitySavings))}
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section className="panel-card" aria-labelledby="roi-inputs-heading">
         <h2 id="roi-inputs-heading" className="card-heading">
           ROI assumptions (annual benefit)
@@ -1416,9 +1500,9 @@ function App() {
           aria-hidden={!isPanels}
           style={{ display: isPanels ? 'block' : 'none' }}
         >
-          <Panel4Governance />
-          <Panel5CiCd />
-          <Panel6Uptime />
+          <Panel4Governance slaUptime={p6Uptime} />
+          <Panel5CiCd automationPct={automationPct} setAutomationPct={setAutomationPct} teamSize={teamSize} setTeamSize={setTeamSize} />
+          <Panel6Uptime redundancy={redundancy} setRedundancy={setRedundancy} multiRegion={multiRegion} setMultiRegion={setMultiRegion} />
         </div>
         </div>
       </div>
