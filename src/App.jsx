@@ -70,6 +70,28 @@ function IconAi({ className }) {
   )
 }
 
+function IconAdoption({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M3 3h2v16h16v2H3V3zm17 4l1.4 1.4-6 6-3-3-5 5L6 15l6-6 3 3 5-5z"
+      />
+    </svg>
+  )
+}
+
+function IconDiffusion({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 4a8 8 0 100 16 8 8 0 000-16zm0 2a6 6 0 110 12 6 6 0 010-12zm0 2a4 4 0 100 8 4 4 0 000-8zm0 2a2 2 0 110 4 2 2 0 010-4z"
+      />
+    </svg>
+  )
+}
+
 function parseMoney(s) {
   if (s === '' || s === null || s === undefined) return 0
   const n = Number(String(s).replace(/,/g, '').trim())
@@ -186,6 +208,70 @@ function buildAiAdjustedRows(
     running += totalCost
     return { ...r, opex, capex, totalCost, cumulativeCost: running }
   })
+}
+
+/**
+ * 12-month adoption + resistance curves:
+ *   rate(t)       = maxAdoption * (1 - e^(-k * t))
+ *   resistance(t) = baseResistance * e^(-decayRate * t)
+ *   maxAdoption    = 0.4 + (training/40)*0.35 + (leadership/100)*0.25, capped at 1.0
+ *   k              = 0.15 + (training/40)*0.2 + (leadership/100)*0.15
+ *   baseResistance = 1 - (training/40)*0.5 - (leadership/100)*0.5, floored at 0
+ *   decayRate      = 0.1 + (training/40)*0.15 + (leadership/100)*0.1
+ */
+function buildAdoptionCurve(trainingHours, leadershipEngagement) {
+  const tFrac = Math.min(Math.max(trainingHours / 40, 0), 1)
+  const lFrac = Math.min(Math.max(leadershipEngagement / 100, 0), 1)
+  const maxAdoption = Math.min(1, 0.4 + tFrac * 0.35 + lFrac * 0.25)
+  const k = 0.15 + tFrac * 0.2 + lFrac * 0.15
+  const baseResistance = Math.max(0, 1 - tFrac * 0.5 - lFrac * 0.5)
+  const decayRate = 0.1 + tFrac * 0.15 + lFrac * 0.1
+  const points = []
+  for (let t = 1; t <= 12; t++) {
+    points.push({
+      month: t,
+      rate: maxAdoption * (1 - Math.exp(-k * t)),
+      resistance: baseResistance * Math.exp(-decayRate * t),
+    })
+  }
+  return { points, maxAdoption, k, baseResistance, decayRate }
+}
+
+/**
+ * 24-month Bass Diffusion cumulative-adoption curve.
+ *   p = (marketingSpend / 200) * marketMult.p
+ *   q = (networkEffect * 0.5) * marketMult.q
+ *   F(t) = (1 - e^(-(p+q)t)) / (1 + (q/p) * e^(-(p+q)t))
+ *   newAdopters(t) = F(t) - F(t-1)
+ * Guards the p ≈ 0 degenerate case (no innovators ⇒ no diffusion).
+ */
+const BASS_MARKET_MULTIPLIERS = {
+  B2C: { p: 1.0, q: 1.0 },
+  B2B: { p: 0.5, q: 0.4 },
+}
+
+function buildBassDiffusionCurve(marketingSpend, networkEffect, marketType) {
+  const mult =
+    BASS_MARKET_MULTIPLIERS[marketType] ?? BASS_MARKET_MULTIPLIERS.B2C
+  const p = (Math.max(0, marketingSpend) / 200) * mult.p
+  const q = (Math.max(0, Math.min(1, networkEffect)) * 0.5) * mult.q
+  const sum = p + q
+  const points = []
+  let prevCumulative = 0
+  for (let t = 1; t <= 24; t++) {
+    let f
+    if (sum <= 1e-9 || p <= 1e-9) {
+      f = 0
+    } else {
+      const e = Math.exp(-sum * t)
+      f = (1 - e) / (1 + (q / p) * e)
+    }
+    const cumulative = Math.min(1, Math.max(0, f))
+    const newAdopters = Math.max(0, cumulative - prevCumulative)
+    points.push({ month: t, cumulative, newAdopters })
+    prevCumulative = cumulative
+  }
+  return { points, p, q, marketType: marketType ?? 'B2C' }
 }
 
 /** Cumulative ROI curve knots; t = fractional years elapsed (0 start, 1–5 year-ends). */
@@ -1717,6 +1803,663 @@ function Panel7Ai({
   )
 }
 
+/* ─────────────────────────────────────────────
+   PANEL 8 – Adoption Curve
+───────────────────────────────────────────── */
+function AdoptionLineChart({ points }) {
+  const w = 640
+  const h = 320
+  const padL = 56
+  const padR = 28
+  const padT = 28
+  const padB = 54
+  const innerW = w - padL - padR
+  const innerH = h - padT - padB
+
+  function xAt(month) {
+    return padL + ((month - 1) / 11) * innerW
+  }
+  function yAt(rate) {
+    const clamped = Math.min(1, Math.max(0, rate))
+    return padT + innerH * (1 - clamped)
+  }
+
+  const polyline = points.map((p) => `${xAt(p.month)},${yAt(p.rate)}`).join(' ')
+  const resistancePolyline = points
+    .map((p) => `${xAt(p.month)},${yAt(p.resistance)}`)
+    .join(' ')
+
+  return (
+    <svg
+      className="adoption-chart"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="Monthly adoption rate and resistance index over the 12-month rollout"
+    >
+      <title>Monthly adoption rate and resistance index over 12-month rollout</title>
+      {/* Horizontal gridlines + Y axis labels */}
+      {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+        const y = padT + innerH * (1 - frac)
+        return (
+          <g key={`hg-${frac}`}>
+            <line
+              x1={padL}
+              y1={y}
+              x2={padL + innerW}
+              y2={y}
+              className="chart-grid-line"
+            />
+            <text
+              x={padL - 8}
+              y={y + 4}
+              textAnchor="end"
+              className="chart-axis-label"
+            >
+              {Math.round(frac * 100)}%
+            </text>
+          </g>
+        )
+      })}
+      {/* X axis ticks 1..12 */}
+      {points.map((p) => {
+        const xv = xAt(p.month)
+        return (
+          <g key={`xt-${p.month}`}>
+            <line
+              x1={xv}
+              y1={padT + innerH}
+              x2={xv}
+              y2={padT + innerH + 6}
+              className="chart-axis-tick-line"
+            />
+            <text
+              x={xv}
+              y={h - padB + 30}
+              textAnchor="middle"
+              className="chart-axis-label chart-axis-year"
+            >
+              {p.month}
+            </text>
+          </g>
+        )
+      })}
+      {/* Axis titles */}
+      <text
+        x={padL + innerW / 2}
+        y={18}
+        textAnchor="middle"
+        className="chart-title"
+      >
+        Rate (%)
+      </text>
+      <text
+        x={padL + innerW / 2}
+        y={h - 8}
+        textAnchor="middle"
+        className="chart-axis-label"
+      >
+        Month
+      </text>
+      {/* Resistance index polyline (drawn first so adoption stays visually on top) */}
+      <polyline
+        className="resistance-line"
+        points={resistancePolyline}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {points.map((p) => (
+        <circle
+          key={`rdot-${p.month}`}
+          cx={xAt(p.month)}
+          cy={yAt(p.resistance)}
+          r={3.25}
+          className="resistance-dot"
+        />
+      ))}
+      {/* Adoption rate polyline */}
+      <polyline
+        className="adoption-line"
+        points={polyline}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {points.map((p) => (
+        <circle
+          key={`dot-${p.month}`}
+          cx={xAt(p.month)}
+          cy={yAt(p.rate)}
+          r={4}
+          className="adoption-dot"
+        />
+      ))}
+    </svg>
+  )
+}
+
+function Panel8Adoption({
+  trainingHours,
+  setTrainingHours,
+  leadershipEngagement,
+  setLeadershipEngagement,
+}) {
+  const { points, maxAdoption, k } = buildAdoptionCurve(
+    trainingHours,
+    leadershipEngagement,
+  )
+  const lastPoint = points[points.length - 1] ?? { rate: 0, resistance: 0 }
+  const month12Rate = lastPoint.rate
+  const month12Resistance = lastPoint.resistance
+
+  let insightTone = 'low'
+  let insightText =
+    'Low adoption risk detected. Significant investment in training and leadership is recommended.'
+  if (month12Rate > 0.8) {
+    insightTone = 'strong'
+    insightText =
+      'Strong adoption projected. Leadership and training levels are sufficient.'
+  } else if (month12Rate >= 0.5) {
+    insightTone = 'moderate'
+    insightText =
+      'Moderate adoption expected. Consider increasing training hours or leadership involvement.'
+  }
+
+  return (
+    <main className="migration-panel" id="panel8-adoption">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud migration simulator · Section 8</p>
+        <p className="panel-title-context">Panel 8: Adoption Curve</p>
+        <p className="panel-subtitle">
+          Simulate how training investment and leadership engagement drive
+          employee adoption of the new cloud-based claims system over a
+          12-month rollout period.
+        </p>
+      </header>
+
+      <section className="panel-card" aria-labelledby="p8-controls-heading">
+        <h2 id="p8-controls-heading" className="card-heading">Controls</h2>
+        <p className="card-lead">
+          Move the sliders to model how investment in workforce enablement and
+          executive sponsorship reshape the adoption S-curve.
+        </p>
+        <div className="p5-sliders">
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p8-training">
+              Training Hours per Employee (h):{' '}
+              <strong>{trainingHours} h</strong>
+            </label>
+            <input
+              id="p8-training"
+              type="range"
+              min="0"
+              max="40"
+              step="1"
+              value={trainingHours}
+              onChange={(e) => setTrainingHours(Number(e.target.value))}
+              className="p5-range"
+              aria-label="Training hours per employee"
+            />
+            <div className="p5-range-labels">
+              <span>0 h</span><span>20 h</span><span>40 h</span>
+            </div>
+          </div>
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p8-leadership">
+              Leadership Engagement (%):{' '}
+              <strong>{leadershipEngagement}%</strong>
+            </label>
+            <input
+              id="p8-leadership"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={leadershipEngagement}
+              onChange={(e) =>
+                setLeadershipEngagement(Number(e.target.value))
+              }
+              className="p5-range"
+              aria-label="Leadership engagement percentage"
+            />
+            <div className="p5-range-labels">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="summary-strip" aria-label="Adoption simulation summary">
+        <div className="summary-tile">
+          <span className="summary-label">Adoption ceiling</span>
+          <span className="summary-value">
+            {(maxAdoption * 100).toFixed(1)}%
+          </span>
+        </div>
+        <div className="summary-tile">
+          <span className="summary-label">Growth rate (k)</span>
+          <span className="summary-value">{k.toFixed(3)}</span>
+        </div>
+        <div className="summary-tile summary-tile-positive">
+          <span className="summary-label">Month-12 adoption</span>
+          <span className="summary-value">
+            {(month12Rate * 100).toFixed(1)}%
+          </span>
+        </div>
+        <div className="summary-tile">
+          <span className="summary-label">Month-12 resistance</span>
+          <span className="summary-value">
+            {(month12Resistance * 100).toFixed(1)}%
+          </span>
+        </div>
+      </section>
+
+      <section className="panel-card" aria-labelledby="p8-chart-heading">
+        <h2 id="p8-chart-heading" className="card-heading">Adoption rate by month</h2>
+        <p className="card-lead">
+          Logistic-style saturation curve over the 12-month rollout. More
+          training and leadership engagement raise the adoption ceiling and
+          accelerate the decay of resistance.
+        </p>
+        <div className="chart-legend">
+          <span className="legend-item">
+            <span className="legend-line legend-line-adoption" /> Adoption Rate
+          </span>
+          <span className="legend-item">
+            <span className="legend-line legend-line-resistance" /> Resistance Index
+          </span>
+        </div>
+        <AdoptionLineChart points={points} />
+        <div
+          className={`p8-insight p8-insight-${insightTone}`}
+          role="status"
+          aria-live="polite"
+        >
+          {insightText}
+        </div>
+      </section>
+    </main>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   PANEL 9 – Bass Diffusion Simulator
+───────────────────────────────────────────── */
+function DiffusionLineChart({ points }) {
+  const w = 640
+  const h = 320
+  const padL = 56
+  const padR = 64
+  const padT = 28
+  const padB = 54
+  const innerW = w - padL - padR
+  const innerH = h - padT - padB
+
+  function xAt(month) {
+    return padL + ((month - 1) / 23) * innerW
+  }
+  function yAt(value) {
+    const clamped = Math.min(1, Math.max(0, value))
+    return padT + innerH * (1 - clamped)
+  }
+
+  // Auto-scale right axis for new-adopters velocity. Values are 0–1 (fraction of market).
+  // Convert to percent for snap selection, then back to fraction for projection.
+  const peakNewPct =
+    points.reduce((m, p) => (p.newAdopters > m ? p.newAdopters : m), 0) * 100
+  const NICE_STEPS = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100]
+  const rightMaxPct =
+    NICE_STEPS.find((s) => s >= Math.max(peakNewPct, 1e-9)) ??
+    NICE_STEPS[NICE_STEPS.length - 1]
+  const rightMaxFrac = rightMaxPct / 100
+
+  function yVelocity(value) {
+    const clamped = Math.min(rightMaxFrac, Math.max(0, value))
+    return padT + innerH * (1 - clamped / rightMaxFrac)
+  }
+
+  const polyline = points
+    .map((p) => `${xAt(p.month)},${yAt(p.cumulative)}`)
+    .join(' ')
+  const velocityPolyline = points
+    .map((p) => `${xAt(p.month)},${yVelocity(p.newAdopters)}`)
+    .join(' ')
+
+  const rightAxisX = padL + innerW
+  const rightLabelX = rightAxisX + 8
+
+  return (
+    <svg
+      className="diffusion-chart"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="Cumulative customer adoption and per-month new adopters over the 24-month diffusion horizon"
+    >
+      <title>Cumulative customer adoption and per-month new adopters over the 24-month diffusion horizon</title>
+      {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+        const y = padT + innerH * (1 - frac)
+        return (
+          <g key={`hg-${frac}`}>
+            <line
+              x1={padL}
+              y1={y}
+              x2={padL + innerW}
+              y2={y}
+              className="chart-grid-line"
+            />
+            <text
+              x={padL - 8}
+              y={y + 4}
+              textAnchor="end"
+              className="chart-axis-label"
+            >
+              {Math.round(frac * 100)}%
+            </text>
+          </g>
+        )
+      })}
+      {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
+        const y = padT + innerH * (1 - frac)
+        const value = frac * rightMaxPct
+        const label =
+          rightMaxPct >= 10
+            ? `${Math.round(value)}%`
+            : `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`
+        return (
+          <text
+            key={`rg-${frac}`}
+            x={rightLabelX}
+            y={y + 4}
+            textAnchor="start"
+            className="chart-axis-label"
+          >
+            {label}
+          </text>
+        )
+      })}
+      {points.map((p) => {
+        const xv = xAt(p.month)
+        const labelable = p.month === 1 || p.month % 2 === 0
+        return (
+          <g key={`xt-${p.month}`}>
+            <line
+              x1={xv}
+              y1={padT + innerH}
+              x2={xv}
+              y2={padT + innerH + (labelable ? 6 : 3)}
+              className="chart-axis-tick-line"
+            />
+            {labelable ? (
+              <text
+                x={xv}
+                y={h - padB + 30}
+                textAnchor="middle"
+                className="chart-axis-label chart-axis-year"
+              >
+                {p.month}
+              </text>
+            ) : null}
+          </g>
+        )
+      })}
+      <text
+        x={padL + innerW / 2}
+        y={18}
+        textAnchor="middle"
+        className="chart-title"
+      >
+        Cumulative Adoption (%) &amp; New Adopters (%)
+      </text>
+      <text
+        x={padL + innerW / 2}
+        y={h - 8}
+        textAnchor="middle"
+        className="chart-axis-label"
+      >
+        Month
+      </text>
+      <text
+        x={rightAxisX + 48}
+        y={padT + innerH / 2}
+        textAnchor="middle"
+        className="chart-axis-label"
+        transform={`rotate(-90 ${rightAxisX + 48} ${padT + innerH / 2})`}
+      >
+        New Adopters (% of market)
+      </text>
+      <polyline
+        className="diffusion-velocity-line"
+        points={velocityPolyline}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polyline
+        className="diffusion-line"
+        points={polyline}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {points.map((p) => (
+        <circle
+          key={`vdot-${p.month}`}
+          cx={xAt(p.month)}
+          cy={yVelocity(p.newAdopters)}
+          r={3}
+          className="diffusion-velocity-dot"
+        />
+      ))}
+      {points.map((p) => (
+        <circle
+          key={`ddot-${p.month}`}
+          cx={xAt(p.month)}
+          cy={yAt(p.cumulative)}
+          r={3.75}
+          className="diffusion-dot"
+        />
+      ))}
+    </svg>
+  )
+}
+
+const MARKET_TYPE_NOTES = {
+  B2C: 'Consumer market: faster adoption driven by social influence and broad marketing reach.',
+  B2B: 'Enterprise market: slower adoption due to procurement cycles, stakeholder approval, and integration complexity.',
+}
+
+function Panel9Diffusion({
+  marketingSpend,
+  setMarketingSpend,
+  networkEffect,
+  setNetworkEffect,
+  marketType,
+  setMarketType,
+}) {
+  const { points, p: pCoeff, q: qCoeff } = buildBassDiffusionCurve(
+    marketingSpend,
+    networkEffect,
+    marketType,
+  )
+  const month12 = points[11]?.cumulative ?? 0
+  const month24 = points[points.length - 1]?.cumulative ?? 0
+
+  let peakIndex = 0
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].newAdopters > points[peakIndex].newAdopters) peakIndex = i
+  }
+  const peakMonth =
+    points[peakIndex] && points[peakIndex].newAdopters > 0
+      ? points[peakIndex].month
+      : null
+
+  const marketContextNote =
+    MARKET_TYPE_NOTES[marketType] ?? MARKET_TYPE_NOTES.B2C
+
+  return (
+    <main className="migration-panel" id="panel9-diffusion">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud migration simulator · Section 9</p>
+        <p className="panel-title-context">Panel 9: Diffusion Simulator</p>
+        <p className="panel-subtitle">
+          Simulate how marketing investment and word-of-mouth network effects
+          drive customer adoption of the new platform over a 24-month period,
+          modeled on the Bass Diffusion framework.
+        </p>
+      </header>
+
+      <section className="panel-card" aria-labelledby="p9-market-heading">
+        <h2 id="p9-market-heading" className="card-heading">Market Type</h2>
+        <p className="card-lead">
+          Choose the market segment to scale the innovation (p) and imitation
+          (q) coefficients before they reach the Bass curve.
+        </p>
+        <div className="p9-market-type">
+          <label htmlFor="p9-market-type-select" className="p9-market-label">
+            Market Type
+          </label>
+          <select
+            id="p9-market-type-select"
+            className="p9-market-select"
+            value={marketType}
+            onChange={(e) => setMarketType(e.target.value)}
+          >
+            <option value="B2C">B2C — Consumer (1.0× p, 1.0× q)</option>
+            <option value="B2B">B2B — Enterprise (0.5× p, 0.4× q)</option>
+          </select>
+        </div>
+        <p className="p9-market-note">{marketContextNote}</p>
+      </section>
+
+      <section className="panel-card" aria-labelledby="p9-controls-heading">
+        <h2 id="p9-controls-heading" className="card-heading">Controls</h2>
+        <p className="card-lead">
+          Move the sliders to reshape the diffusion S-curve. Marketing spend
+          drives external (innovation) pressure; network effect drives internal
+          (imitation) word-of-mouth. Both are then scaled by the selected
+          market type.
+        </p>
+        <div className="p5-sliders">
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p9-marketing">
+              Marketing Spend (% of budget):{' '}
+              <strong>{marketingSpend}%</strong>
+            </label>
+            <input
+              id="p9-marketing"
+              type="range"
+              min="0"
+              max="20"
+              step="0.5"
+              value={marketingSpend}
+              onChange={(e) => setMarketingSpend(Number(e.target.value))}
+              className="p5-range"
+              aria-label="Marketing spend as percentage of budget"
+            />
+            <div className="p5-range-labels">
+              <span>0%</span><span>10%</span><span>20%</span>
+            </div>
+            <p className="p7-slider-impact">
+              Innovation coefficient <strong>p = marketingSpend / 200</strong>.
+            </p>
+          </div>
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p9-network">
+              Network Effect Strength (0 = none, 1 = maximum):{' '}
+              <strong>{networkEffect.toFixed(2)}</strong>
+            </label>
+            <input
+              id="p9-network"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={networkEffect}
+              onChange={(e) => setNetworkEffect(Number(e.target.value))}
+              className="p5-range"
+              aria-label="Network effect strength"
+            />
+            <div className="p5-range-labels">
+              <span>0.00</span><span>0.50</span><span>1.00</span>
+            </div>
+            <p className="p7-slider-impact">
+              Imitation coefficient <strong>q = networkEffect × 0.5</strong>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="summary-strip" aria-label="Bass diffusion summary">
+        <div className="summary-tile">
+          <span className="summary-label">Innovation coeff. p</span>
+          <span className="summary-value">{pCoeff.toFixed(4)}</span>
+        </div>
+        <div className="summary-tile">
+          <span className="summary-label">Imitation coeff. q</span>
+          <span className="summary-value">{qCoeff.toFixed(4)}</span>
+        </div>
+        <div className="summary-tile summary-tile-positive">
+          <span className="summary-label">Month-12 cumulative adoption</span>
+          <span className="summary-value">{(month12 * 100).toFixed(1)}%</span>
+        </div>
+        <div className="summary-tile summary-tile-positive">
+          <span className="summary-label">Month-24 cumulative adoption</span>
+          <span className="summary-value">{(month24 * 100).toFixed(1)}%</span>
+        </div>
+      </section>
+
+      <section className="panel-card" aria-labelledby="p9-chart-heading">
+        <h2 id="p9-chart-heading" className="card-heading">Cumulative adoption by month</h2>
+        <p className="card-lead">
+          Classic Bass S-curve: slow start while innovators trickle in,
+          acceleration as imitators are pulled along by word-of-mouth, then a
+          plateau as the addressable market saturates.
+        </p>
+        <div className="chart-legend">
+          <span className="legend-item">
+            <span className="legend-line legend-line-diffusion" /> Cumulative Adoption (%)
+          </span>
+          <span className="legend-item">
+            <span className="legend-line legend-line-velocity" /> New Adopters per Month (%)
+          </span>
+        </div>
+        <DiffusionLineChart points={points} />
+      </section>
+
+      <section className="panel-card p9-stat-card" aria-labelledby="p9-stats-heading">
+        <h2 id="p9-stats-heading" className="card-heading">Diffusion summary</h2>
+        <p className="card-lead">
+          Live readouts derived from the current curve, market type, and slider
+          settings.
+        </p>
+        <div className="p9-stat-grid">
+          <div className="p9-stat-box">
+            <span className="p9-stat-label">Peak Adoption Month</span>
+            <span className="p9-stat-value">{peakMonth ?? '—'}</span>
+            <span className="p9-stat-sub">
+              {peakMonth != null
+                ? 'Inflection of the S-curve (max new adopters / month)'
+                : 'No measurable adoption velocity at this setting'}
+            </span>
+          </div>
+          <div className="p9-stat-box">
+            <span className="p9-stat-label">Projected 12-Month Adoption</span>
+            <span className="p9-stat-value">{(month12 * 100).toFixed(1)}%</span>
+            <span className="p9-stat-sub">F(12) cumulative</span>
+          </div>
+          <div className="p9-stat-box">
+            <span className="p9-stat-label">Projected 24-Month Adoption</span>
+            <span className="p9-stat-value">{(month24 * 100).toFixed(1)}%</span>
+            <span className="p9-stat-sub">F(24) cumulative</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
+
 function RoiValuePanel() {
   return (
     <main className="migration-panel">
@@ -1749,6 +2492,11 @@ function App() {
   const [teamSize, setTeamSize] = useState(10)
   const [redundancy, setRedundancy] = useState(3)
   const [multiRegion, setMultiRegion] = useState(false)
+  const [trainingHours, setTrainingHours] = useState(20)
+  const [leadershipEngagement, setLeadershipEngagement] = useState(50)
+  const [marketingSpend, setMarketingSpend] = useState(5)
+  const [networkEffect, setNetworkEffect] = useState(0.3)
+  const [marketType, setMarketType] = useState('B2C')
 
   const [opexByYear, setOpexByYear] = useState([
     '250000',
@@ -2052,6 +2800,8 @@ function App() {
   const isRoi = activeView === 'roi'
   const isAi = activeView === 'ai'
   const isPanels = activeView === 'panels'
+  const isAdoption = activeView === 'adoption'
+  const isDiffusion = activeView === 'diffusion'
   const topHeaderTitle =
     activeView === 'home'
       ? 'Technology Benefit Simulator'
@@ -2061,7 +2811,11 @@ function App() {
           ? 'Governance, CI/CD & Uptime Simulators'
           : activeView === 'ai'
             ? 'Innovation & AI Integration'
-            : 'ROI and Value Analysis'
+            : activeView === 'adoption'
+              ? 'Panel 8: Adoption Curve'
+              : activeView === 'diffusion'
+                ? 'Panel 9: Diffusion Simulator'
+                : 'ROI and Value Analysis'
 
   return (
     <div className="app-shell">
@@ -2127,6 +2881,26 @@ function App() {
               <IconAi className="sidebar-nav-svg" />
               <span className="sidebar-nav-label">
                 Innovation &amp; AI Integration
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isAdoption ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('adoption')}
+            >
+              <IconAdoption className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 8: Adoption Curve
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isDiffusion ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('diffusion')}
+            >
+              <IconDiffusion className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 9: Diffusion Simulator
               </span>
             </button>
           </nav>
@@ -2537,6 +3311,38 @@ function App() {
             aiRoiCurve={aiRoiCurve}
             aiBreakevenPoint={aiBreakevenPoint}
             aiBreakevenExplanation={aiBreakevenExplanation}
+          />
+        </div>
+
+        <div
+          className="adoption-route"
+          id="adoption-route"
+          hidden={!isAdoption}
+          aria-hidden={!isAdoption}
+          style={{ display: isAdoption ? 'block' : 'none' }}
+        >
+          <Panel8Adoption
+            trainingHours={trainingHours}
+            setTrainingHours={setTrainingHours}
+            leadershipEngagement={leadershipEngagement}
+            setLeadershipEngagement={setLeadershipEngagement}
+          />
+        </div>
+
+        <div
+          className="diffusion-route"
+          id="diffusion-route"
+          hidden={!isDiffusion}
+          aria-hidden={!isDiffusion}
+          style={{ display: isDiffusion ? 'block' : 'none' }}
+        >
+          <Panel9Diffusion
+            marketingSpend={marketingSpend}
+            setMarketingSpend={setMarketingSpend}
+            networkEffect={networkEffect}
+            setNetworkEffect={setNetworkEffect}
+            marketType={marketType}
+            setMarketType={setMarketType}
           />
         </div>
 

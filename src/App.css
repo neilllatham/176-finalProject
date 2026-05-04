@@ -1645,3 +1645,258 @@
   color: var(--text);
   opacity: 0.85;
 }
+
+/* Panel 8 – Adoption Curve */
+.adoption-chart {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  margin: 16px auto 0;
+}
+
+.adoption-line {
+  stroke: #3b82f6;
+  stroke-width: 2.5;
+}
+
+.adoption-dot {
+  fill: #3b82f6;
+  stroke: var(--bg, #fff);
+  stroke-width: 1.5;
+}
+
+.legend-line-adoption {
+  border-bottom: 3px solid #3b82f6;
+}
+
+.resistance-line {
+  stroke: #ef4444;
+  stroke-width: 2.25;
+  stroke-dasharray: 6 6;
+}
+
+.resistance-dot {
+  fill: var(--bg, #fff);
+  stroke: #ef4444;
+  stroke-width: 1.75;
+}
+
+.legend-line-resistance {
+  border-bottom: 3px dashed #ef4444;
+}
+
+@media (prefers-color-scheme: dark) {
+  .adoption-line {
+    stroke: #60a5fa;
+  }
+  .adoption-dot {
+    fill: #60a5fa;
+    stroke: var(--bg, #1a1b1e);
+  }
+  .legend-line-adoption {
+    border-bottom-color: #60a5fa;
+  }
+  .resistance-line {
+    stroke: #f87171;
+  }
+  .resistance-dot {
+    fill: var(--bg, #1a1b1e);
+    stroke: #f87171;
+  }
+  .legend-line-resistance {
+    border-bottom-color: #f87171;
+  }
+}
+
+.p8-insight {
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-h);
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.p8-insight-strong {
+  border-color: color-mix(in srgb, #16a34a 35%, var(--border));
+  background: color-mix(in srgb, #16a34a 12%, transparent);
+}
+
+.p8-insight-moderate {
+  border-color: color-mix(in srgb, #d97706 40%, var(--border));
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+}
+
+.p8-insight-low {
+  border-color: color-mix(in srgb, #dc2626 40%, var(--border));
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .p8-insight-strong {
+    border-color: color-mix(in srgb, #34d399 40%, var(--border));
+    background: color-mix(in srgb, #34d399 12%, transparent);
+  }
+  .p8-insight-moderate {
+    border-color: color-mix(in srgb, #fbbf24 40%, var(--border));
+    background: color-mix(in srgb, #fbbf24 12%, transparent);
+  }
+  .p8-insight-low {
+    border-color: color-mix(in srgb, #f87171 40%, var(--border));
+    background: color-mix(in srgb, #f87171 12%, transparent);
+  }
+}
+
+/* Panel 9 – Bass Diffusion Simulator */
+.diffusion-chart {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  margin: 16px auto 0;
+}
+
+.diffusion-line {
+  stroke: #3b82f6;
+  stroke-width: 2.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diffusion-dot {
+  fill: #3b82f6;
+  stroke: var(--bg, #fff);
+  stroke-width: 1.5;
+}
+
+.legend-line-diffusion {
+  border-bottom: 3px solid #3b82f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  .diffusion-line {
+    stroke: #60a5fa;
+  }
+  .diffusion-dot {
+    fill: #60a5fa;
+    stroke: var(--bg, #1a1b1e);
+  }
+  .legend-line-diffusion {
+    border-bottom-color: #60a5fa;
+  }
+}
+
+/* Panel 9 refinement – velocity line, market type, summary stats */
+.diffusion-velocity-line {
+  stroke: #16a34a;
+  stroke-width: 2.25;
+  stroke-dasharray: 6 6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diffusion-velocity-dot {
+  fill: var(--bg, #fff);
+  stroke: #16a34a;
+  stroke-width: 1.75;
+}
+
+.legend-line-velocity {
+  border-bottom: 3px dashed #16a34a;
+}
+
+.p9-market-type {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.p9-market-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.p9-market-select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg, #fff);
+  color: var(--text);
+  font-size: 14px;
+  min-width: 240px;
+  cursor: pointer;
+}
+
+.p9-market-select:focus {
+  outline: 2px solid color-mix(in srgb, #3b82f6 50%, transparent);
+  outline-offset: 1px;
+}
+
+.p9-market-note {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--text);
+  opacity: 0.78;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.p9-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.p9-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--dash-page-fill, color-mix(in srgb, var(--bg) 92%, transparent));
+}
+
+.p9-stat-label {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.72;
+}
+
+.p9-stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.p9-stat-sub {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+  .diffusion-velocity-line {
+    stroke: #34d399;
+  }
+  .diffusion-velocity-dot {
+    fill: var(--bg, #1a1b1e);
+    stroke: #34d399;
+  }
+  .legend-line-velocity {
+    border-bottom-color: #34d399;
+  }
+  .p9-market-select {
+    background: var(--bg, #1a1b1e);
+  }
+}
