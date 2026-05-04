@@ -59,12 +59,24 @@ function IconPanels({ className }) {
   )
 }
 
-function IconAi({ className }) {
+function IconRoiSensitivity({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
       <path
-        fill="currentColor"
-        d="M9 2v2H7v2H5V4H3v16h2v-2h2v2h2v-2h6v2h2v-2h2v2h2V4h-2v2h-2V4h-2V2h-2v2H9V2zm0 4h6v2H9V6zm-2 4h10v8H7v-8zm2 2v4h2v-4H9zm4 0v4h2v-4h-2z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 20h18M5 20V8m4 12V11m4 9V5m4 15v-7m4 7v-3"
+      />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeDasharray="2 2"
+        d="M14 4v16"
       />
     </svg>
   )
@@ -113,101 +125,173 @@ function formatCurrency(n) {
   }).format(Math.round(n))
 }
 
-/** Gaussian for marginal uplift: marginal (dU/d spend) peaks at mu (maximum efficiency dollar). */
-const AI_MARGINAL_PEAK_MEAN_USD = 100000
-const AI_MARGINAL_PEAK_SIGMA_USD = 72000
-
-/** Normalize CDF plateau at per-category slider ceiling (portfolio cap aligns with sliders). */
-const AI_UPFLIFT_SIGMOID_INV_CAP_USD = 500000
+/**
+ * Panel 7 ROI Sensitivity Explorer helpers.
+ * AI uplift uses a Gaussian CDF (S-curve) per category when that category has investment
+ * greater than $0; Availability multiplies Fraud & Data Mining, Reliability multiplies CX.
+ * No investment in a line → no uplift for that line regardless of DQ sliders.
+ * Data quality OpEx is $0 at 0% per axis; above 0%, each axis bills at
+ * DATA_QUALITY_OPEX_SCALAR × (20k·e^(3.5·dq/100)) — presently 10% of that curve (~$23k/axis near 85%).
+ */
+/** Scalar on the reference exponential curve ($0 when slider is 0%); 10× former 1% tier. */
+const DATA_QUALITY_OPEX_SCALAR = 0.1
+const AI_BUDGET_CAP = 500000
+const AI_MAX_UPLIFTS = { fraud: 350000, cx: 280000, dataMining: 220000 }
+const AI_MAINTENANCE_RATE = 0.08
+const HORIZON_YEARS = 5
 
 /**
- * Error function Abramowitz/Steg approximation 7.1.26; sufficient for Φ in uplift model.
+ * Shade band for cumulative ROI chart: YoY ΔROI = roi(t)-roi(t-1), roi(0)=0.
+ * Negative cumulative ROI → under-investment; else optimal if ΔROI accelerates vs prior year.
  */
-function erfApproxAbramowitz(x) {
-  const sign = x < 0 ? -1 : 1
-  const ax = Math.abs(x)
-  const p = 0.3275911
-  const a1 = 0.254829592
-  const a2 = -0.284496736
-  const a3 = 1.421413741
-  const a4 = -1.453152027
-  const a5 = 1.061405429
-  const t = 1 / (1 + p * ax)
-  const y =
-    1 -
-    ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) *
-      t *
-      Math.exp(-ax * ax)
-  return sign * Math.min(Math.max(y, -1), 1)
+function classifyP7RoiYearZone(points, year) {
+  const i = year - 1
+  const pt = points[i]
+  // #region agent log
+  fetch('http://127.0.0.1:7428/ingest/4dc69b6e-6484-486d-bf3f-6ac3ac44fd9d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28975b'},body:JSON.stringify({sessionId:'28975b',location:'App.jsx:classifyP7RoiYearZone',message:'enter',data:{year,i,ptsLen:points.length,roiY1:points[0]?.roi,roiThis:pt?.roi,idxIMinus2:i-2,negIndexSample:points[i-2]?.roi},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+  if (!pt) return 'under'
+  if (pt.roi < 0) return 'under'
+  if (year === 1) return 'optimal'
+  const deltaCurr = pt.roi - points[i - 1].roi
+  // #region agent log
+  fetch('http://127.0.0.1:7428/ingest/4dc69b6e-6484-486d-bf3f-6ac3ac44fd9d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28975b'},body:JSON.stringify({sessionId:'28975b',location:'App.jsx:classifyP7RoiYearZone',message:'before deltaPrev',data:{year,i,willUsePointsAtIMinus2:i>=2,iMinus2:i-2},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+  // YoY vs prior YoY gain; year 2 compares to Δ from implicit roi(0)=0 (not points[-1]).
+  const deltaPrev =
+    i >= 2 ? points[i - 1].roi - points[i - 2].roi : points[0].roi - 0
+  // #region agent log
+  fetch('http://127.0.0.1:7428/ingest/4dc69b6e-6484-486d-bf3f-6ac3ac44fd9d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28975b'},body:JSON.stringify({sessionId:'28975b',location:'App.jsx:classifyP7RoiYearZone',message:'deltaPrev ok',data:{year,i,deltaCurr,deltaPrev,runId:'post-fix'},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+  return deltaCurr > deltaPrev ? 'optimal' : 'diminishing'
 }
 
-/** Standard normal Φ(z): total benefit from Gaussian marginal is Φ((I-μ)/σ) - Φ(-μ/σ). */
-function standardNormalPhi(z) {
-  return 0.5 * (1 + erfApproxAbramowitz(z / Math.SQRT2))
+/** erf approximation from the Panel 7 spec (Abramowitz polynomial form, valid for z >= 0). */
+function erfApprox(z) {
+  const sign = z < 0 ? -1 : 1
+  const az = Math.abs(z)
+  const denom =
+    1 +
+    0.278393 * az +
+    0.230389 * az * az +
+    0.000972 * az * az * az +
+    0.078108 * az * az * az * az
+  return sign * (1 - 1 / Math.pow(denom, 4))
 }
 
-/**
- * Total annual uplift factor S(I) ∈ [0,1]: normalized CDF of marginal-intensity Gaussian
- * from $0 to I (S-curve; marginal peaks at AI_MARGINAL_PEAK_MEAN_USD).
- */
-function aiInvestmentCdfUpliftFactor(investmentDollars) {
-  if (investmentDollars <= 0) return 0
-  const mu = AI_MARGINAL_PEAK_MEAN_USD
-  const sigma = AI_MARGINAL_PEAK_SIGMA_USD
-  const cap = AI_UPFLIFT_SIGMOID_INV_CAP_USD
-  const inv = Math.min(cap, Math.max(0, investmentDollars))
-  const z0 = -mu / sigma
-  const zi = (inv - mu) / sigma
-  const zCap = (cap - mu) / sigma
-  const num = standardNormalPhi(zi) - standardNormalPhi(z0)
-  const den = standardNormalPhi(zCap) - standardNormalPhi(z0)
-  if (den <= 1e-12) return 0
-  return Math.min(1, Math.max(0, num / den))
+function aiGaussianCdf(x, mu = 100000, sigma = 80000) {
+  return 0.5 * (1 + erfApprox((x - mu) / (sigma * Math.SQRT2)))
 }
 
-/** Recurring Data Quality OpEx: exponential with inflection / steepening past 85% average (Availability + Reliability). */
-const DQ_INFLECTION = 0.85
-const DQ_PRE_A = 7800
-const DQ_PRE_K = 1.45
-const DQ_POST_K = 1.15
-
-function computeDataQualityAnnualOpex(availabilityPct, reliabilityPct) {
-  const u = Math.min(
-    1,
-    Math.max(0, ((availabilityPct + reliabilityPct) / 2) / 100),
-  )
+/** Annual OpEx for a single Data Quality axis (Availability OR Reliability). */
+function dataQualityAnnualOpex(dqPct) {
+  const u = Math.min(100, Math.max(0, dqPct))
   if (u <= 0) return 0
-  if (u <= DQ_INFLECTION) {
-    return DQ_PRE_A * (Math.exp(DQ_PRE_K * (u / DQ_INFLECTION)) - 1)
-  }
-  const base85 = DQ_PRE_A * (Math.exp(DQ_PRE_K) - 1)
-  const frac = (u - DQ_INFLECTION) / (1 - DQ_INFLECTION)
-  return base85 * Math.exp(DQ_POST_K * frac)
+  return DATA_QUALITY_OPEX_SCALAR * (20000 * Math.exp((3.5 * u) / 100))
 }
 
 /**
- * AI & Data Quality cashflow adjustments:
- * - AI initial spend: CapEx in Year 1 only
- * - AI maintenance: OpEx in Years 2–5 (8% of total AI investment per year)
- * - Data Quality: OpEx every year
+ * 5-year cumulative ROI curve (year 1..5).
+ * Year 0 holds the AI CapEx; each subsequent year adds baseline OpEx+CapEx,
+ * AI maintenance OpEx (8% of total AI CapEx), and Data Quality OpEx for both axes.
+ * Cumulative return adds each year: Budget Planning annual benefit (downtime +
+ * productivity + data center avoided) plus AI uplift (FD + CX + DM).
+ * Cumulative ROI at year t: (cumulativeBenefit - cumulativeCost) / cumulativeBenefit × 100.
  */
-function buildAiAdjustedRows(
-  rows,
-  { aiCapexYear1 = 0, aiMaintenanceOpexAnnual = 0, dataQualityOpexAnnual = 0 },
-) {
-  const hasAdjustments =
-    aiCapexYear1 || aiMaintenanceOpexAnnual || dataQualityOpexAnnual
-  if (!hasAdjustments) return rows
-  let running = 0
-  return rows.map((r, i) => {
-    let opex = r.opex + dataQualityOpexAnnual
-    let capex = r.capex
-    if (i === 0) capex += aiCapexYear1
-    if (i > 0) opex += aiMaintenanceOpexAnnual
-    const totalCost = opex + capex
-    running += totalCost
-    return { ...r, opex, capex, totalCost, cumulativeCost: running }
-  })
+function buildAiCumulativeRoiCurve({
+  fraudInvestment,
+  cxInvestment,
+  dataMiningInvestment,
+  dataAvailability,
+  dataReliability,
+  baselineRows,
+  baselineAnnualBenefit = 0,
+}) {
+  const migrationAnnual = Math.max(0, baselineAnnualBenefit)
+  const baselineTotalCapex = baselineRows.reduce(
+    (s, row) => s + (row?.capex ?? 0),
+    0,
+  )
+  const baselineTotalOpex = baselineRows.reduce(
+    (s, row) => s + (row?.opex ?? 0),
+    0,
+  )
+
+  const rawTotal = fraudInvestment + cxInvestment + dataMiningInvestment
+  const overCap = rawTotal > AI_BUDGET_CAP
+  const scale = overCap && rawTotal > 0 ? AI_BUDGET_CAP / rawTotal : 1
+  const fI = fraudInvestment * scale
+  const cI = cxInvestment * scale
+  const dI = dataMiningInvestment * scale
+  const aiCapex = fI + cI + dI
+  const availMult = Math.min(1, Math.max(0, dataAvailability / 100))
+  const relMult = Math.min(1, Math.max(0, dataReliability / 100))
+
+  // Availability / Reliability are multipliers only: no funded AI line → no uplift for that line.
+  const fraudBenefit =
+    fI <= 0
+      ? 0
+      : AI_MAX_UPLIFTS.fraud * aiGaussianCdf(fI) * availMult
+  const cxBenefit =
+    cI <= 0 ? 0 : AI_MAX_UPLIFTS.cx * aiGaussianCdf(cI) * relMult
+  const dmBenefit =
+    dI <= 0
+      ? 0
+      : AI_MAX_UPLIFTS.dataMining * aiGaussianCdf(dI) * availMult
+  const annualAiBenefit = fraudBenefit + cxBenefit + dmBenefit
+
+  const dqOpexAnnual =
+    dataQualityAnnualOpex(dataAvailability) +
+    dataQualityAnnualOpex(dataReliability)
+  const aiMaintenanceAnnual = aiCapex * AI_MAINTENANCE_RATE
+
+  let cumulativeCost = aiCapex
+  let cumulativeBenefit = 0
+  const points = []
+
+  for (let t = 1; t <= HORIZON_YEARS; t++) {
+    const baseline = baselineRows[t - 1] ?? { opex: 0, capex: 0 }
+    const annualCost =
+      baseline.opex + baseline.capex + aiMaintenanceAnnual + dqOpexAnnual
+    cumulativeCost += annualCost
+    cumulativeBenefit += annualAiBenefit + migrationAnnual
+    const roi =
+      cumulativeBenefit > 1e-9
+        ? ((cumulativeBenefit - cumulativeCost) / cumulativeBenefit) * 100
+        : 0
+    points.push({ year: t, cumulativeBenefit, cumulativeCost, roi })
+  }
+
+  const aiMaintenanceFiveYr = aiMaintenanceAnnual * HORIZON_YEARS
+  const dqSpendFiveYr = dqOpexAnnual * HORIZON_YEARS
+  /** 5 yr AI maintenance (8%) + 5 yr Data Quality OpEx (both sliders); shown as Total AI OpEx. */
+  const totalAiOpex5 = aiMaintenanceFiveYr + dqSpendFiveYr
+  const totalAiCostY5 = aiCapex + totalAiOpex5
+  const totalCostY5 =
+    points.length > 0 ? points[points.length - 1].cumulativeCost : aiCapex
+
+  return {
+    points,
+    totals: {
+      aiCapex,
+      baselineTotalCapex,
+      baselineTotalOpex,
+      aiMaintenanceFiveYr,
+      dqSpendFiveYr,
+      totalAiOpex5,
+      totalAiCostY5,
+      totalCostY5,
+      annualAiBenefit,
+      fraudBenefit,
+      cxBenefit,
+      dmBenefit,
+      dqOpexAnnual,
+      aiMaintenanceAnnual,
+      rawTotal,
+      overCap,
+      scale,
+    },
+  }
 }
 
 /**
@@ -446,315 +530,6 @@ function RoiBreakevenChart({ curvePoints, breakeven }) {
           />
         </g>
       ) : null}
-    </svg>
-  )
-}
-
-/** Zone thresholds for AI total ($) vs avg Data Quality (%): illustrative bands (~$155k–$355k total across three initiatives) & DQ OpEx ramp past ~82–85%. */
-const ZONE_AI_UNDER = 130000
-const ZONE_AI_OVER = 400000
-const ZONE_DQ_UNDER = 52
-const ZONE_DQ_OVER = 82
-const ZONE_B_AI_LO = 155000
-const ZONE_B_AI_HI = 355000
-const ZONE_B_DQ_LO = 54
-const ZONE_B_DQ_HI = 82
-
-function classifyAiDqPosture(aiTotalDollars, dqAvgPct) {
-  if (
-    aiTotalDollars >= ZONE_B_AI_LO &&
-    aiTotalDollars <= ZONE_B_AI_HI &&
-    dqAvgPct >= ZONE_B_DQ_LO &&
-    dqAvgPct <= ZONE_B_DQ_HI
-  ) {
-    return {
-      postureKey: 'balanced',
-      postureLabelShort:
-        'Balanced — illustrative efficient envelope (missed-risk & cost-pressure moderated)',
-    }
-  }
-  if (
-    dqAvgPct < ZONE_DQ_UNDER ||
-    aiTotalDollars < ZONE_AI_UNDER
-  ) {
-    return {
-      postureKey: 'under',
-      postureLabelShort:
-        'Lean / under-investment — missed opportunity dominates',
-    }
-  }
-  if (
-    dqAvgPct >= ZONE_DQ_OVER ||
-    aiTotalDollars >= ZONE_AI_OVER
-  ) {
-    return {
-      postureKey: 'over',
-      postureLabelShort:
-        'Heavy — diminishing returns / Data Quality OpEx pressure',
-    }
-  }
-  return {
-    postureKey: 'transition',
-    postureLabelShort:
-      'Transitional — outside corner bands',
-  }
-}
-
-/** 2-D posture map with colored under / balanced / over regions. */
-function AiDqInvestmentZoneChart({ aiTotalDollars, dqAvgPct }) {
-  const w = 560
-  const h = 356
-  const padL = 66
-  const padR = 28
-  const padT = 44
-  const padB = 58
-  const innerW = w - padL - padR
-  const innerH = h - padT - padB
-  const aiMax = 500000
-
-  function xAi(ai) {
-    const u = Math.min(Math.max(ai / aiMax, 0), 1)
-    return padL + u * innerW
-  }
-  function yDq(dq) {
-    const u = Math.min(Math.max(dq / 100, 0), 1)
-    return padT + innerH * (1 - u)
-  }
-
-  const x0 = padL
-  const y0 = padT
-  const x1 = padL + innerW
-  const y1 = padT + innerH
-  const clipId = 'p7AiDqPlotClip'
-
-  const { postureKey, postureLabelShort } = classifyAiDqPosture(
-    aiTotalDollars,
-    dqAvgPct,
-  )
-
-  const dotX = xAi(aiTotalDollars)
-  const dotY = yDq(dqAvgPct)
-
-  return (
-    <svg
-      className="ai-dq-zone-chart"
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label={`Investment posture versus AI budget and average data quality. ${postureLabelShort}`}
-    >
-      <title>{postureLabelShort.replace(/ — .*/, '')}</title>
-      <defs>
-        <clipPath id={clipId}>
-          <rect x={x0} y={y0} width={innerW} height={innerH} />
-        </clipPath>
-      </defs>
-
-      {/* Background grid */}
-      {[0, 0.25, 0.5, 0.75, 1].map((t) => {
-        const xv = padL + t * innerW
-        const yk = padT + t * innerH
-        return (
-          <g key={`g-${t}`}>
-            <line
-              x1={xv}
-              y1={padT}
-              x2={xv}
-              y2={padT + innerH}
-              className="chart-grid-line"
-            />
-            <line
-              x1={padL}
-              y1={yk}
-              x2={padL + innerW}
-              y2={yk}
-              className="chart-grid-line"
-            />
-          </g>
-        )
-      })}
-      {/* Frame */}
-      <rect
-        x={x0}
-        y={y0}
-        width={innerW}
-        height={innerH}
-        fill="none"
-        className="ai-dq-zone-chart-frame"
-      />
-
-      {/* Colored zones (clipped) */}
-      <g clipPath={`url(#${clipId})`}>
-        {/* Balanced core — drawn first */}
-        <rect
-          x={xAi(ZONE_B_AI_LO)}
-          y={yDq(ZONE_B_DQ_HI)}
-          width={Math.max(0, xAi(ZONE_B_AI_HI) - xAi(ZONE_B_AI_LO))}
-          height={Math.max(0, yDq(ZONE_B_DQ_LO) - yDq(ZONE_B_DQ_HI))}
-          className="ai-dq-zone ai-dq-zone-balanced"
-          opacity={0.22}
-        />
-        {/* Under-investment */}
-        <rect
-          x={x0}
-          y={padT}
-          width={Math.max(0, xAi(ZONE_AI_UNDER) - x0)}
-          height={innerH}
-          className="ai-dq-zone ai-dq-zone-under"
-          opacity={0.32}
-        />
-        <rect
-          x={padL}
-          y={yDq(ZONE_DQ_UNDER)}
-          width={innerW}
-          height={Math.max(0, y1 - yDq(ZONE_DQ_UNDER))}
-          className="ai-dq-zone ai-dq-zone-under"
-          opacity={0.28}
-        />
-        {/* Over-investment */}
-        <rect
-          x={xAi(ZONE_AI_OVER)}
-          y={padT}
-          width={Math.max(0, x1 - xAi(ZONE_AI_OVER))}
-          height={innerH}
-          className="ai-dq-zone ai-dq-zone-over"
-          opacity={0.3}
-        />
-        <rect
-          x={padL}
-          y={padT}
-          width={innerW}
-          height={Math.max(0, yDq(ZONE_DQ_OVER) - padT)}
-          className="ai-dq-zone ai-dq-zone-over"
-          opacity={0.26}
-        />
-      </g>
-
-      {/* Threshold guide lines */}
-      <line
-        x1={xAi(ZONE_AI_UNDER)}
-        x2={xAi(ZONE_AI_UNDER)}
-        y1={padT}
-        y2={padT + innerH}
-        className="ai-dq-zone-edge-line"
-      />
-      <line
-        x1={xAi(ZONE_AI_OVER)}
-        x2={xAi(ZONE_AI_OVER)}
-        y1={padT}
-        y2={padT + innerH}
-        className="ai-dq-zone-edge-line"
-      />
-      <line
-        x1={padL}
-        x2={padL + innerW}
-        y1={yDq(ZONE_DQ_UNDER)}
-        y2={yDq(ZONE_DQ_UNDER)}
-        className="ai-dq-zone-edge-line"
-      />
-      <line
-        x1={padL}
-        x2={padL + innerW}
-        y1={yDq(ZONE_DQ_OVER)}
-        y2={yDq(ZONE_DQ_OVER)}
-        className="ai-dq-zone-edge-line"
-      />
-
-      {/* Axis labels */}
-      {[0, 100000, 200000, 300000, 400000, 500000].map((v) => {
-        const xv = xAi(v)
-        return (
-          <text
-            key={`rtx-${v}`}
-            x={xv}
-            y={y1 + 42}
-            textAnchor="middle"
-            className="chart-axis-label chart-axis-year"
-          >
-            {v === 500000 ? '500k' : v === 0 ? '0' : `${Math.round(v / 1000)}k`}
-          </text>
-        )
-      })}
-      {[0, 25, 50, 75, 100].map((d) => {
-        const yy = yDq(d)
-        return (
-          <text
-            key={`rtl-${d}`}
-            x={padL - 10}
-            y={yy + 4}
-            textAnchor="end"
-            className="chart-axis-label"
-          >
-            {d}%
-          </text>
-        )
-      })}
-      <text
-        x={padL + innerW / 2}
-        y={22}
-        textAnchor="middle"
-        className="chart-title"
-      >
-        AI investment &amp; data quality posture
-      </text>
-      <text
-        x={padL + innerW / 2}
-        y={h - 14}
-        textAnchor="middle"
-        className="chart-axis-label"
-      >
-        Total AI investment (USD · cap $500k)
-      </text>
-      <text
-        x={16}
-        y={padT + innerH / 2}
-        textAnchor="middle"
-        transform={`rotate(-90 16 ${padT + innerH / 2})`}
-        className="chart-axis-label"
-      >
-        Average data quality %
-      </text>
-
-      {/* Current scenario */}
-      <line
-        x1={dotX}
-        y1={dotY}
-        x2={dotX}
-        y2={padT + innerH}
-        className="ai-dq-current-crosshair ai-dq-current-crosshair-v"
-      />
-      <line
-        x1={padL}
-        y1={dotY}
-        x2={padL + innerW}
-        y2={dotY}
-        className="ai-dq-current-crosshair ai-dq-current-crosshair-h"
-      />
-      <circle
-        cx={dotX}
-        cy={dotY}
-        r={14}
-        className="ai-dq-current-pulse"
-      />
-      <circle
-        cx={dotX}
-        cy={dotY}
-        r={7}
-        className={`ai-dq-current-dot posture-${postureKey}`}
-      />
-
-      {/* Corner zone labels */}
-      <text x={x0 + 8} y={y1 - 10} className="ai-dq-corner-label ai-dq-under-label">
-        Under-investment
-      </text>
-      <text
-        x={x1 - 8}
-        y={padT + 18}
-        textAnchor="end"
-        className="ai-dq-corner-label ai-dq-over-label"
-      >
-        Over-investment
-      </text>
     </svg>
   )
 }
@@ -1358,447 +1133,590 @@ function Panel6Uptime({ redundancy, setRedundancy, multiRegion, setMultiRegion }
 }
 
 /* ─────────────────────────────────────────────
-   PANEL 7 – Innovation & AI Integration
+   PANEL 7 – ROI Sensitivity Explorer
 ───────────────────────────────────────────── */
-function Panel7Ai({
-  totalCost5,
-  totalBenefits5,
-  baselineRoiPct,
-  annualBenefits,
-  aiFraudDetection,
-  aiCxEnhancement,
-  aiDataMining,
-  setAiFraudDetection,
-  setAiCxEnhancement,
-  setAiDataMining,
-  dataAvailabilityPct,
-  setDataAvailabilityPct,
-  dataReliabilityPct,
-  setDataReliabilityPct,
-  aiInvestmentTotal,
-  aiBudgetCap,
-  dataQualityAnnualOpex,
-  dataQualityFiveYearOpex,
-  aiMaintenanceOpexAnnual,
-  aiMaintenanceFiveYearOpex,
-  fdAnnualBenefit,
-  dmAnnualBenefit,
-  cxAnnualBenefit,
-  aiAnnualUplift,
-  aiAdjustedAnnualBenefit,
-  aiTotalCost5,
-  aiTotalReturn5,
-  aiRoiPct,
-  aiRoiCurve,
-  aiBreakevenPoint,
-  aiBreakevenExplanation,
-}) {
-  const capPct = Math.min(100, (aiInvestmentTotal / aiBudgetCap) * 100)
-  const capRemaining = aiBudgetCap - aiInvestmentTotal
-  const capWarning = capRemaining <= 25000
-  const roiDeltaPct =
-    baselineRoiPct === null || aiRoiPct === null
-      ? null
-      : aiRoiPct - baselineRoiPct
+function P7sCumulativeRoiChart({ points }) {
+  const w = 640
+  const h = 320
+  const padL = 64
+  const padR = 28
+  const padT = 28
+  const padB = 54
+  const innerW = w - padL - padR
+  const innerH = h - padT - padB
 
-  const availabilityRealizationPct = Math.round(dataAvailabilityPct)
-  const reliabilityRealizationPct = Math.round(dataReliabilityPct)
+  const roiValues = points.map((p) => p.roi)
+  const rawMin = Math.min(0, ...roiValues)
+  const rawMax = Math.max(0, ...roiValues)
+  const span = Math.max(rawMax - rawMin, 1)
+  const NICE = [10, 25, 50, 100, 200, 500, 1000]
+  const step = NICE.find((s) => span / s <= 6) ?? 1000
+  const yMin = Math.floor(rawMin / step) * step
+  const yMax = Math.ceil(rawMax / step) * step
+  const yRange = Math.max(yMax - yMin, 1)
 
-  const dqAvgRounded = Math.round((dataAvailabilityPct + dataReliabilityPct) / 2)
-  const dqAvgPct = (dataAvailabilityPct + dataReliabilityPct) / 2
+  const yTicks = []
+  for (let v = yMin; v <= yMax + 1e-9; v += step) yTicks.push(v)
 
-  const posture = classifyAiDqPosture(aiInvestmentTotal, dqAvgPct)
+  function xAt(year) {
+    return padL + ((year - 1) / (HORIZON_YEARS - 1)) * innerW
+  }
+  function yAt(roi) {
+    return padT + innerH * (1 - (roi - yMin) / yRange)
+  }
 
-  const insightLines = []
-  if (aiInvestmentTotal > 0) {
-    insightLines.push(
-      `Marginal uplift per initiative peaks at ${formatCurrency(AI_MARGINAL_PEAK_MEAN_USD)}—total annual uplift follows a Gaussian CDF (S-curve), so returns keep rising but taper after that inflection.`,
-    )
+  const polyline = points.map((p) => `${xAt(p.year)},${yAt(p.roi)}`).join(' ')
+  const breakevenY = yAt(0)
+  const horizonX = xAt(HORIZON_YEARS)
+
+  const zoneBands = []
+  const zoneClasses = {
+    under: 'p7s-zone-under',
+    optimal: 'p7s-zone-optimal',
+    diminishing: 'p7s-zone-diminishing',
   }
-  if (aiFraudDetection > 0 || aiDataMining > 0) {
-    insightLines.push(
-      `At ${availabilityRealizationPct}% Availability, only ${availabilityRealizationPct}% of the Fraud Detection + Data Mining uplift is realized.`,
-    )
+  const zoneLabels = {
+    under: 'Under-Investment',
+    optimal: 'Optimal',
+    diminishing: 'Diminishing',
   }
-  if (aiCxEnhancement > 0) {
-    insightLines.push(
-      `At ${reliabilityRealizationPct}% Reliability, only ${reliabilityRealizationPct}% of the Customer Experience uplift is realized.`,
-    )
+  for (let y = 1; y <= HORIZON_YEARS; y++) {
+    const xl =
+      y === 1 ? padL : (xAt(y - 1) + xAt(y)) / 2
+    const xr =
+      y === HORIZON_YEARS
+        ? padL + innerW
+        : (xAt(y) + xAt(y + 1)) / 2
+    const zone = classifyP7RoiYearZone(points, y)
+    zoneBands.push({ y, xl, xr, zone })
   }
-  if (aiInvestmentTotal === 0) {
-    insightLines.push(
-      'No AI initiatives funded yet. Move any of the three sliders above $0 to unlock AI-driven uplift.',
-    )
-  }
-  insightLines.push(
-    `Data Quality OpEx ramps exponentially around ${Math.round(DQ_INFLECTION * 100)}% average score (here ${dqAvgRounded}%). Costs above that reflect LLM-scale guardrails and review.`,
-  )
 
   return (
-    <main className="migration-panel" id="panel7-ai">
+    <svg
+      className="p7s-chart"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="ROI break-even: cumulative ROI vs. 0% reference, Budget Planning savings and AI uplift vs. cumulative cost"
+    >
+      <title>
+        ROI break-even: cumulative return vs. cumulative cost (0% = break-even)
+      </title>
+
+      <g className="p7s-zone-layer" aria-hidden="true">
+        {zoneBands.map(({ y, xl, xr, zone }) => (
+          <g key={`z-${y}`}>
+            <rect
+              x={xl}
+              y={padT}
+              width={xr - xl}
+              height={innerH}
+              className={zoneClasses[zone]}
+            />
+            <text
+              x={xl + (xr - xl) / 2}
+              y={padT + 16}
+              textAnchor="middle"
+              className="p7s-zone-label"
+            >
+              {zoneLabels[zone]}
+            </text>
+            <title>
+              Year {y}:{' '}
+              {zone === 'under'
+                ? 'Under-Investment (Negative ROI)'
+                : zone === 'optimal'
+                  ? 'Optimal Return Zone'
+                  : 'Diminishing Returns'}
+            </title>
+          </g>
+        ))}
+      </g>
+
+      {yTicks.map((v) => {
+        const y = yAt(v)
+        return (
+          <g key={`yg-${v}`}>
+            <line
+              x1={padL}
+              y1={y}
+              x2={padL + innerW}
+              y2={y}
+              className="chart-grid-line"
+            />
+            <text
+              x={padL - 8}
+              y={y + 4}
+              textAnchor="end"
+              className="chart-axis-label"
+            >
+              {`${v}%`}
+            </text>
+          </g>
+        )
+      })}
+
+      {points.map((p) => {
+        const xv = xAt(p.year)
+        return (
+          <g key={`xt-${p.year}`}>
+            <line
+              x1={xv}
+              y1={padT + innerH}
+              x2={xv}
+              y2={padT + innerH + 6}
+              className="chart-axis-tick-line"
+            />
+            <text
+              x={xv}
+              y={padT + innerH + 22}
+              textAnchor="middle"
+              className="chart-axis-label chart-axis-year"
+            >
+              {p.year}
+            </text>
+          </g>
+        )
+      })}
+
+      <text
+        x={padL + innerW / 2}
+        y={18}
+        textAnchor="middle"
+        className="chart-title"
+      >
+        ROI vs. break-even (%)
+      </text>
+      <text
+        x={padL + innerW / 2}
+        y={h - 8}
+        textAnchor="middle"
+        className="chart-axis-label"
+      >
+        Year
+      </text>
+
+      <line
+        x1={padL}
+        y1={breakevenY}
+        x2={padL + innerW}
+        y2={breakevenY}
+        className="p7s-breakeven-line"
+      />
+      <text
+        x={padL + innerW - 6}
+        y={breakevenY - 6}
+        textAnchor="end"
+        className="chart-axis-label p7s-breakeven-label"
+      >
+        Break-even (0%)
+      </text>
+
+      <line
+        x1={horizonX}
+        y1={padT}
+        x2={horizonX}
+        y2={padT + innerH}
+        className="p7s-horizon-line"
+      />
+      <text
+        x={horizonX - 6}
+        y={padT + 12}
+        textAnchor="end"
+        className="chart-axis-label p7s-horizon-label"
+      >
+        Year 5 horizon
+      </text>
+
+      <polyline
+        className="p7s-roi-line"
+        points={polyline}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {points.map((p) => (
+        <circle
+          key={`pt-${p.year}`}
+          cx={xAt(p.year)}
+          cy={yAt(p.roi)}
+          r={4}
+          className="p7s-roi-dot"
+        />
+      ))}
+    </svg>
+  )
+}
+
+function Panel7RoiSensitivity({
+  rows,
+  /** Sum of downtime + productivity + data center avoided (Budget Planning annual benefit). */
+  baselineAnnualBenefit,
+  fraudInvestment,
+  setFraudInvestment,
+  cxInvestment,
+  setCxInvestment,
+  dataMiningInvestment,
+  setDataMiningInvestment,
+  dataAvailability,
+  setDataAvailability,
+  dataReliability,
+  setDataReliability,
+}) {
+  const { points, totals } = useMemo(
+    () =>
+      buildAiCumulativeRoiCurve({
+        fraudInvestment,
+        cxInvestment,
+        dataMiningInvestment,
+        dataAvailability,
+        dataReliability,
+        baselineRows: rows,
+        baselineAnnualBenefit,
+      }),
+    [
+      fraudInvestment,
+      cxInvestment,
+      dataMiningInvestment,
+      dataAvailability,
+      dataReliability,
+      rows,
+      baselineAnnualBenefit,
+    ],
+  )
+
+  const breakEvenYear = useMemo(() => {
+    const hit = points.find((p) => p.roi > 0)
+    return hit ? hit.year : null
+  }, [points])
+  const fiveYearRoi = points[points.length - 1]?.roi ?? 0
+  const fiveYearPositive = fiveYearRoi >= 0
+
+  const combinedAnnualBenefit =
+    baselineAnnualBenefit + totals.annualAiBenefit
+
+  const p7SummaryInsight = useMemo(() => {
+    if (breakEvenYear == null) {
+      return '⚠️ AI investment does not break even within 5 years. Consider increasing investment or improving data quality.'
+    }
+    if (breakEvenYear <= 2) {
+      return '✅ Strong ROI trajectory. Investment breaks even early with high long-term returns.'
+    }
+    if (breakEvenYear <= 4) {
+      return '📊 Moderate ROI. Investment recovers in mid-term. Monitor data quality to accelerate returns.'
+    }
+    return '⚠️ ROI barely breaks even by year 5. Reassess investment allocation across the three AI categories.'
+  }, [breakEvenYear])
+
+  return (
+    <main className="migration-panel" id="panel7-roi-sensitivity">
       <header className="panel-header panel-header-context">
         <p className="migration-eyebrow">Cloud migration simulator · Section 7</p>
-        <p className="panel-title-context">Innovation &amp; AI Integration</p>
+        <p className="panel-title-context">Panel 7: ROI Sensitivity Explorer</p>
         <p className="panel-subtitle">
-          Layer custom AI workloads (Fraud Detection, CX Enhancement, Data
-          Mining) on top of the budget plan and explore how Data Quality —
-          Availability and Reliability — gates the realized return.
+          Simulate how AI investment across Fraud Detection, CX Enhancement,
+          and Data Mining — combined with Data Quality improvements — affects
+          5-year cumulative ROI on the cloud migration project.
         </p>
       </header>
 
-      <section className="panel-card" aria-labelledby="p7-imported-heading">
-        <h2 id="p7-imported-heading" className="card-heading">
-          From Budget Planning
+      <section className="panel-card" aria-labelledby="p7s-ai-heading">
+        <h2 id="p7s-ai-heading" className="card-heading">
+          AI Investment (CapEx, Year 0)
         </h2>
         <p className="card-lead">
-          Read-only snapshot of the figures driving baseline ROI. Edit them in
-          <strong> Budget Planning and Cost Estimation</strong> to update this
-          panel.
+          Allocate up to $500,000 across the three custom AI initiatives.
+          Marginal benefit per category peaks at $100,000 (Gaussian S-curve).
+          A recurring 8% annual maintenance fee is applied as OpEx in years 1–5.
         </p>
-        <div className="summary-strip">
-          <div className="summary-tile">
-            <span className="summary-label">Baseline 5-yr cost</span>
-            <span className="summary-value">{formatCurrency(totalCost5)}</span>
-          </div>
-          <div className="summary-tile summary-tile-positive">
-            <span className="summary-label">Baseline 5-yr benefits</span>
-            <span className="summary-value">{formatCurrency(totalBenefits5)}</span>
-          </div>
-          <div className="summary-tile">
-            <span className="summary-label">Baseline annual benefit</span>
-            <span className="summary-value">{formatCurrency(annualBenefits)}</span>
-          </div>
-          <div className="summary-tile summary-tile-roi">
-            <span className="summary-label">Baseline ROI</span>
-            <span className="summary-value">
-              {baselineRoiPct === null
-                ? '—'
-                : `${baselineRoiPct >= 0 ? '+' : ''}${baselineRoiPct.toFixed(1)}%`}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="p7-ai-controls-heading">
-        <h2 id="p7-ai-controls-heading" className="card-heading">
-          AI Investment ($0–500K total)
-        </h2>
-        <p className="card-lead">
-          Custom AI on open-source models (e.g., Llama). Initial allocation is{' '}
-          <strong>CapEx in Year 1</strong>. Thereafter{' '}
-          <strong>8%</strong> of total AI investment recurs yearly as{' '}
-          <strong>OpEx (Years 2–5)</strong>. Marginal uplift per initiative peaks at{' '}
-          <strong>{formatCurrency(AI_MARGINAL_PEAK_MEAN_USD)}</strong>; total uplift
-          per line follows an <strong>S-curve</strong> (normalized Gaussian CDF)
-          so incremental efficiency falls after that point.
-        </p>
-        <div className="p7-slider-grid">
-          <div className="p7-slider-row">
-            <label className="p5-slider-label" htmlFor="p7-ai-fd">
-              Fraud Detection: <strong>{formatCurrency(aiFraudDetection)}</strong>
+        <div className="p5-sliders">
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p7s-ai-fraud">
+              Fraud Detection: <strong>{formatCurrency(fraudInvestment)}</strong>
             </label>
             <input
-              id="p7-ai-fd"
+              id="p7s-ai-fraud"
               type="range"
               min="0"
-              max={aiBudgetCap}
+              max="500000"
               step="5000"
-              value={aiFraudDetection}
-              onChange={(e) => setAiFraudDetection(e.target.value)}
+              value={fraudInvestment}
+              onChange={(e) => setFraudInvestment(Number(e.target.value))}
               className="p5-range"
-              aria-label="AI Fraud Detection investment in dollars"
+              aria-label="Fraud Detection investment in dollars"
             />
-            <p className="p7-slider-impact">
-              Graph-computing risk features and hidden fraud rings. Scaled by
-              <strong> Availability</strong>.
-            </p>
+            <div className="p5-range-labels">
+              <span>$0</span><span>$250K</span><span>$500K</span>
+            </div>
           </div>
-          <div className="p7-slider-row">
-            <label className="p5-slider-label" htmlFor="p7-ai-cx">
-              CX Enhancement: <strong>{formatCurrency(aiCxEnhancement)}</strong>
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p7s-ai-cx">
+              CX Enhancement: <strong>{formatCurrency(cxInvestment)}</strong>
             </label>
             <input
-              id="p7-ai-cx"
+              id="p7s-ai-cx"
               type="range"
               min="0"
-              max={aiBudgetCap}
+              max="500000"
               step="5000"
-              value={aiCxEnhancement}
-              onChange={(e) => setAiCxEnhancement(e.target.value)}
+              value={cxInvestment}
+              onChange={(e) => setCxInvestment(Number(e.target.value))}
               className="p5-range"
-              aria-label="AI Customer Experience investment in dollars"
+              aria-label="CX Enhancement investment in dollars"
             />
-            <p className="p7-slider-impact">
-              Tens of thousands of specialized auto-insurance queries and
-              personalized plans. Scaled by <strong>Reliability</strong>.
-            </p>
+            <div className="p5-range-labels">
+              <span>$0</span><span>$250K</span><span>$500K</span>
+            </div>
           </div>
-          <div className="p7-slider-row">
-            <label className="p5-slider-label" htmlFor="p7-ai-dm">
-              Data Mining: <strong>{formatCurrency(aiDataMining)}</strong>
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p7s-ai-dm">
+              Data Mining:{' '}
+              <strong>{formatCurrency(dataMiningInvestment)}</strong>
             </label>
             <input
-              id="p7-ai-dm"
+              id="p7s-ai-dm"
               type="range"
               min="0"
-              max={aiBudgetCap}
+              max="500000"
               step="5000"
-              value={aiDataMining}
-              onChange={(e) => setAiDataMining(e.target.value)}
+              value={dataMiningInvestment}
+              onChange={(e) => setDataMiningInvestment(Number(e.target.value))}
               className="p5-range"
-              aria-label="AI Data Mining investment in dollars"
+              aria-label="Data Mining investment in dollars"
             />
-            <p className="p7-slider-impact">
-              Surface high-risk clients and optimize pricing from historical
-              transactions. Scaled by <strong>Availability</strong>.
-            </p>
+            <div className="p5-range-labels">
+              <span>$0</span><span>$250K</span><span>$500K</span>
+            </div>
           </div>
         </div>
         <div
-          className={`p7-cap-meter${capWarning ? ' p7-cap-meter-warning' : ''}`}
+          className={`p7s-cap-meter${totals.overCap ? ' p7s-cap-meter-warning' : ''}`}
           role="status"
           aria-live="polite"
         >
-          <div className="p7-cap-meter-row">
-            <span className="p7-cap-meter-label">
-              AI total: <strong>{formatCurrency(aiInvestmentTotal)}</strong> /{' '}
-              {formatCurrency(aiBudgetCap)}
-            </span>
-            <span className="p7-cap-meter-remaining">
-              {capRemaining > 0
-                ? `${formatCurrency(capRemaining)} remaining`
-                : 'Cap reached'}
-            </span>
-          </div>
-          <div className="p7-cap-meter-bar" aria-hidden>
-            <div
-              className="p7-cap-meter-fill"
-              style={{ width: `${capPct}%` }}
-            />
-          </div>
+          <span className="p7s-cap-meter-label">
+            Total AI Investment:{' '}
+            <strong>{formatCurrency(totals.rawTotal)}</strong> /{' '}
+            {formatCurrency(AI_BUDGET_CAP)}
+          </span>
+          {totals.overCap ? (
+            <p className="p7s-cap-meter-warning-text">
+              Total AI investment cannot exceed $500,000. Please reduce one or
+              more sliders.
+            </p>
+          ) : null}
         </div>
       </section>
 
-      <section className="panel-card" aria-labelledby="p7-dq-controls-heading">
-        <h2 id="p7-dq-controls-heading" className="card-heading">
-          Data Quality (0–100%)
+      <section className="panel-card" aria-labelledby="p7s-dq-heading">
+        <h2 id="p7s-dq-heading" className="card-heading">
+          Data Quality (recurring OpEx)
         </h2>
         <p className="card-lead">
-          Multipliers on AI-driven benefits. All Data Quality spending is{' '}
-          <strong>recurring OpEx</strong> each year, with{' '}
-          <strong>exponential growth</strong> and an inflection near{' '}
-          <strong>85%</strong> average (Availability + Reliability)—reflecting
-          modern LLM-era pipeline and compliance load.
+          Data Availability multiplies Fraud Detection and Data Mining uplift
+          only when that category has AI investment above $0; Data Reliability
+          multiplies CX uplift only when CX has investment above $0. Without that base
+          investment, raising Availability or Reliability does not add annual AI
+          benefit (OpEx for DQ may still apply). At 0% an axis adds no Data
+          Quality OpEx; above 0%, cost rises exponentially toward the 85%
+          inflection.
         </p>
-        <div className="p7-slider-grid">
-          <div className="p7-slider-row">
-            <label className="p5-slider-label" htmlFor="p7-dq-avail">
-              Availability: <strong>{dataAvailabilityPct}%</strong>
+        <div className="p5-sliders">
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p7s-dq-availability">
+              Data Availability: <strong>{dataAvailability}%</strong>
             </label>
             <input
-              id="p7-dq-avail"
+              id="p7s-dq-availability"
               type="range"
               min="0"
               max="100"
-              value={dataAvailabilityPct}
-              onChange={(e) =>
-                setDataAvailabilityPct(Number(e.target.value))
-              }
+              step="1"
+              value={dataAvailability}
+              onChange={(e) => setDataAvailability(Number(e.target.value))}
               className="p5-range"
               aria-label="Data Availability percentage"
             />
-            <p className="p7-slider-impact">
-              Valid Data ÷ Total Required Data. Boosts <strong>Fraud Detection</strong> and
-              <strong> Data Mining</strong> when those projects are funded.
-            </p>
+            <div className="p5-range-labels">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
           </div>
-          <div className="p7-slider-row">
-            <label className="p5-slider-label" htmlFor="p7-dq-rel">
-              Reliability: <strong>{dataReliabilityPct}%</strong>
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p7s-dq-reliability">
+              Data Reliability: <strong>{dataReliability}%</strong>
             </label>
             <input
-              id="p7-dq-rel"
+              id="p7s-dq-reliability"
               type="range"
               min="0"
               max="100"
-              value={dataReliabilityPct}
-              onChange={(e) =>
-                setDataReliabilityPct(Number(e.target.value))
-              }
+              step="1"
+              value={dataReliability}
+              onChange={(e) => setDataReliability(Number(e.target.value))}
               className="p5-range"
               aria-label="Data Reliability percentage"
             />
-            <p className="p7-slider-impact">
-              Compliant replies ÷ total replies (RAG + guardrails + HITL).
-              Boosts <strong>Customer Experience</strong> when CX is funded.
-            </p>
+            <div className="p5-range-labels">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="panel-card" aria-labelledby="p7-zone-heading">
-        <h2 id="p7-zone-heading" className="card-heading">
-          Investment posture map
+      <section className="panel-card" aria-labelledby="p7s-chart-heading">
+        <h2 id="p7s-chart-heading" className="card-heading">
+          ROI break-even
         </h2>
         <p className="card-lead">
-          Shaded regions use <strong>total AI spend</strong> (horizontal, $0–$500k){' '}
-          and <strong>average Data Quality</strong> (vertical, mean of Availability &
-          Reliability). Edges are illustrative—align with ~$155k–$355k illustrative
-          total AI bands and the Data Quality OpEx ramp past ~82%.
-        </p>
-        <div className="chart-legend p7-zone-legend">
-          <span className="legend-item">
-            <span className="legend-swatch ai-dq-zone-legend-under" />{' '}
-            Under-investment · missed opportunity
-          </span>
-          <span className="legend-item">
-            <span className="legend-swatch ai-dq-zone-legend-balanced" /> Efficient
-            envelope
-          </span>
-          <span className="legend-item">
-            <span className="legend-swatch ai-dq-zone-legend-over" />{' '}
-            Over-investment · diminishing returns
-          </span>
-          <span className="legend-item">
-            <span className="legend-line legend-line-ai-dq-marker" /> Current scenario
-          </span>
-        </div>
-        <AiDqInvestmentZoneChart
-          aiTotalDollars={aiInvestmentTotal}
-          dqAvgPct={dqAvgPct}
-        />
-        <div className="ai-dq-zone-foot" role="status">
-          <span className={`p7-posture-pill p7-posture-${posture.postureKey}`}>
-            {posture.postureLabelShort}
-          </span>
-          <span className="ai-dq-zone-coords">
-            {formatCurrency(aiInvestmentTotal)} AI total · {dqAvgRounded}% avg
-            data quality
-          </span>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="p7-summary-heading">
-        <h2 id="p7-summary-heading" className="card-heading">
-          Adjusted ROI summary
-        </h2>
-        <p className="card-lead">
-          ROI = (Return − Cost) / Cost over the 5-year horizon, with AI CapEx,
-          AI maintenance OpEx, and Data Quality OpEx folded in.
-        </p>
-        <div className="summary-strip">
-          <div className="summary-tile">
-            <span className="summary-label">AI CapEx (Year 1)</span>
-            <span className="summary-value">{formatCurrency(aiInvestmentTotal)}</span>
-          </div>
-          <div className="summary-tile">
-            <span className="summary-label">AI maintenance OpEx (Y2–5 @ 8%/yr)</span>
-            <span className="summary-value">{formatCurrency(aiMaintenanceFiveYearOpex)}</span>
-            <span className="p7-summary-sub">
-              {formatCurrency(aiMaintenanceOpexAnnual)} per year × 4 years on total AI spend
-            </span>
-          </div>
-          <div className="summary-tile">
-            <span className="summary-label">Data Quality OpEx</span>
-            <span className="summary-value">{formatCurrency(dataQualityAnnualOpex)}</span>
-            <span className="p7-summary-sub">
-              per year · {formatCurrency(dataQualityFiveYearOpex)} over five years
-            </span>
-          </div>
-          <div className="summary-tile summary-tile-positive">
-            <span className="summary-label">AI annual uplift</span>
-            <span className="summary-value">{formatCurrency(aiAnnualUplift)}</span>
-          </div>
-          <div className="summary-tile summary-tile-accent">
-            <span className="summary-label">Adjusted 5-yr cost</span>
-            <span className="summary-value">{formatCurrency(aiTotalCost5)}</span>
-          </div>
-          <div className="summary-tile summary-tile-positive">
-            <span className="summary-label">Adjusted 5-yr return</span>
-            <span className="summary-value">{formatCurrency(aiTotalReturn5)}</span>
-          </div>
-          <div className="summary-tile summary-tile-roi">
-            <span className="summary-label">Adjusted ROI</span>
-            <span className="summary-value">
-              {aiRoiPct === null
-                ? '—'
-                : `${aiRoiPct >= 0 ? '+' : ''}${aiRoiPct.toFixed(1)}%`}
-            </span>
-            {roiDeltaPct !== null ? (
-              <span
-                className={`p7-roi-delta${roiDeltaPct >= 0 ? ' p7-roi-delta-up' : ' p7-roi-delta-down'}`}
-              >
-                {roiDeltaPct >= 0 ? '▲' : '▼'} {Math.abs(roiDeltaPct).toFixed(1)} pts vs baseline
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="p7-breakdown">
-          <span className="p7-breakdown-item">
-            FD annual: <strong>{formatCurrency(fdAnnualBenefit)}</strong>
-          </span>
-          <span className="p7-breakdown-item">
-            CX annual: <strong>{formatCurrency(cxAnnualBenefit)}</strong>
-          </span>
-          <span className="p7-breakdown-item">
-            Data Mining annual: <strong>{formatCurrency(dmAnnualBenefit)}</strong>
-          </span>
-          <span className="p7-breakdown-item">
-            Adjusted annual benefit:{' '}
-            <strong>{formatCurrency(aiAdjustedAnnualBenefit)}</strong>
-          </span>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="p7-curve-heading">
-        <h2 id="p7-curve-heading" className="card-heading">
-          AI-adjusted cumulative ROI curve
-        </h2>
-        <p className="card-lead">
-          Cumulative cost (original budget + AI CapEx in Year 1 + 8% AI
-          maintenance OpEx in Years 2–5 + Data Quality OpEx every year) versus
-          cumulative benefit (baseline + CDF (S-curve) AI uplift × Data Quality)
-          across the horizon.
+          Cumulative return each year adds Budget Planning annual benefits
+          (downtime, productivity, and data center savings) plus the AI uplift
+          (Fraud, CX, Data Mining). ROI is{' '}
+          <strong>
+            (cumulative return − cumulative cost) ÷ cumulative return
+          </strong>
+          ; the dashed line marks 0% (break-even). Values above 0% mean
+          cumulative return exceeds cumulative cost at that year-end. Shaded
+          bands classify each year&apos;s trajectory (negative ROI, accelerating
+          vs. diminishing positive gains).
         </p>
         <div className="chart-legend">
           <span className="legend-item">
-            <span className="legend-line legend-line-benefit" /> Cumulative
-            benefits
+            <span className="legend-line legend-line-roi-curve" /> Cumulative
+            ROI
           </span>
           <span className="legend-item">
-            <span className="legend-line legend-line-cost" /> Cumulative cost
+            <span className="legend-line legend-line-roi-breakeven" /> Break-even (0%)
           </span>
-          {aiBreakevenPoint ? (
-            <span className="legend-item">
-              <span className="legend-line legend-line-breakeven" /> Break-even
-            </span>
-          ) : null}
         </div>
-        <RoiBreakevenChart
-          curvePoints={aiRoiCurve}
-          breakeven={aiBreakevenPoint}
-        />
-        <div className="breakeven-callout" role="status">
-          {aiBreakevenExplanation.headline ? (
-            <p className="breakeven-callout-head">
-              {aiBreakevenExplanation.headline}
-            </p>
-          ) : null}
-          <p className="breakeven-callout-body">
-            {aiBreakevenExplanation.body}
-          </p>
+        <div className="chart-legend p7s-zone-legend" aria-label="ROI background zones">
+          <span className="legend-item">
+            <span className="legend-swatch legend-swatch-p7-zone-under" />
+            Under-Investment (Negative ROI)
+          </span>
+          <span className="legend-item">
+            <span className="legend-swatch legend-swatch-p7-zone-optimal" />
+            Optimal Return Zone
+          </span>
+          <span className="legend-item">
+            <span className="legend-swatch legend-swatch-p7-zone-diminishing" />
+            Diminishing Returns
+          </span>
         </div>
+        <P7sCumulativeRoiChart points={points} />
       </section>
 
-      {insightLines.length > 0 ? (
-        <div className="p5-insight-banner" role="status">
-          <strong>Sensitivity:</strong>{' '}
-          {insightLines.join(' ')}{' '}
-          {aiInvestmentTotal > 0
-            ? 'Higher Data Quality unlocks more of the potential AI benefit; OpEx accelerates past the 85% inflection.'
-            : ''}
+      <p className="p7s-summary-insight" role="status">
+        {p7SummaryInsight}
+      </p>
+
+      <section className="panel-card p7s-stat-card" aria-labelledby="p7s-stats-heading">
+        <h2 id="p7s-stats-heading" className="card-heading">
+          Sensitivity summary
+        </h2>
+        <div className="p7s-stat-grid">
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Total AI CapEx</span>
+            <span className="p7s-stat-value">
+              {formatCurrency(totals.aiCapex)}
+            </span>
+            <span className="p7s-stat-sub">Year 0 one-time</span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Total AI OpEx</span>
+            <span className="p7s-stat-value">
+              {formatCurrency(totals.totalAiOpex5)}
+            </span>
+            <span className="p7s-stat-sub">
+              8% maintenance × 5 years (cumulative) + Cumulative 5 yrs
+              (Availability + Reliability sliders)
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Total AI Cost</span>
+            <span className="p7s-stat-value">
+              {formatCurrency(totals.totalAiCostY5)}
+            </span>
+            <span className="p7s-stat-sub">
+              AI CapEx (yr 0) + Total AI OpEx row (maint + DQ, 5 yrs)
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Annual AI Benefit</span>
+            <span className="p7s-stat-value">
+              {`${formatCurrency(totals.annualAiBenefit)}/yr`}
+            </span>
+            <span className="p7s-stat-sub">
+              Funded FD / CX / DM only · DQ scales those uplifts
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Total Capex</span>
+            <span className="p7s-stat-value">
+              {formatCurrency(totals.baselineTotalCapex)}
+            </span>
+            <span className="p7s-stat-sub">
+              5-year baseline (Budget Planning table)
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Total OpEx</span>
+            <span className="p7s-stat-value">
+              {formatCurrency(totals.baselineTotalOpex)}
+            </span>
+            <span className="p7s-stat-sub">
+              5-year baseline (Budget Planning table)
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Total Cost</span>
+            <span className="p7s-stat-value">
+              {formatCurrency(totals.totalCostY5)}
+            </span>
+            <span className="p7s-stat-sub">
+              Baseline{' '}
+              {formatCurrency(
+                totals.baselineTotalCapex + totals.baselineTotalOpex,
+              )}{' '}
+              + program{' '}
+              {formatCurrency(totals.aiCapex + totals.totalAiOpex5)} — year 0 AI
+              CapEx + 5-yr Total AI OpEx (maint + DQ)
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Annual Benefit</span>
+            <span className="p7s-stat-value">
+              {`${formatCurrency(combinedAnnualBenefit)}/yr`}
+            </span>
+            <span className="p7s-stat-sub">
+              Budget Planning savings + Annual AI Benefit
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">5-Year ROI</span>
+            <span
+              className={`p7s-stat-value ${fiveYearPositive ? 'p7s-stat-positive' : 'p7s-stat-negative'}`}
+            >
+              {`${fiveYearRoi >= 0 ? '+' : ''}${fiveYearRoi.toFixed(1)}%`}
+            </span>
+            <span className="p7s-stat-sub">
+              At year 5: (cumulative return − cumulative cost) ÷ cumulative
+              return
+            </span>
+          </div>
+          <div className="p7s-stat-box">
+            <span className="p7s-stat-label">Break-Even Year</span>
+            <span className="p7s-stat-value">
+              {breakEvenYear ?? 'Not reached in 5 years'}
+            </span>
+            <span className="p7s-stat-sub">
+              First year cumulative return exceeds cumulative cost
+            </span>
+          </div>
+          <div className="p7s-stat-placeholder" aria-hidden="true" />
+          <div className="p7s-stat-placeholder" aria-hidden="true" />
         </div>
-      ) : null}
+      </section>
     </main>
   )
 }
@@ -2520,29 +2438,11 @@ function App() {
   const [annualDataCenterAvoided, setAnnualDataCenterAvoided] =
     useState('250000')
 
-  const [aiFraudDetection, setAiFraudDetection] = useState(100000)
-  const [aiCxEnhancement, setAiCxEnhancement] = useState(100000)
-  const [aiDataMining, setAiDataMining] = useState(100000)
-  const [dataAvailabilityPct, setDataAvailabilityPct] = useState(60)
-  const [dataReliabilityPct, setDataReliabilityPct] = useState(60)
-
-  const AI_BUDGET_CAP = 500000
-
-  function handleAiFraudDetectionChange(raw) {
-    const next = Number(raw)
-    const headroom = AI_BUDGET_CAP - aiCxEnhancement - aiDataMining
-    setAiFraudDetection(Math.max(0, Math.min(next, headroom)))
-  }
-  function handleAiCxEnhancementChange(raw) {
-    const next = Number(raw)
-    const headroom = AI_BUDGET_CAP - aiFraudDetection - aiDataMining
-    setAiCxEnhancement(Math.max(0, Math.min(next, headroom)))
-  }
-  function handleAiDataMiningChange(raw) {
-    const next = Number(raw)
-    const headroom = AI_BUDGET_CAP - aiFraudDetection - aiCxEnhancement
-    setAiDataMining(Math.max(0, Math.min(next, headroom)))
-  }
+  const [aiFraudInvestment, setAiFraudInvestment] = useState(80000)
+  const [aiCxInvestment, setAiCxInvestment] = useState(80000)
+  const [aiDataMiningInvestment, setAiDataMiningInvestment] = useState(80000)
+  const [dataAvailability, setDataAvailability] = useState(70)
+  const [dataReliability, setDataReliability] = useState(70)
 
   const rows = useMemo(() => {
     const numericOpex = opexByYear.map(parseMoney)
@@ -2630,111 +2530,6 @@ function App() {
     }
   }, [annualBenefits, breakevenPoint, roiCurve])
 
-  // ── AI ROI sensitivity ─────────────────────────────────────────
-  const AI_ALPHA_FD = 1.5
-  const AI_ALPHA_DM = 0.9
-  const AI_ALPHA_CX = 1.2
-  /** Asymptotic dollar scale each initiative approaches as CDF uplift → 1 (per category ceiling). */
-  const AI_UPLIFT_NOMINAL_CAP_USD = AI_MARGINAL_PEAK_MEAN_USD
-  const AI_MAINTENANCE_RATE = 0.08
-
-  const aiInvestmentTotal =
-    aiFraudDetection + aiCxEnhancement + aiDataMining
-
-  const dataQualityAnnualOpex = useMemo(
-    () => computeDataQualityAnnualOpex(dataAvailabilityPct, dataReliabilityPct),
-    [dataAvailabilityPct, dataReliabilityPct],
-  )
-
-  const dataQualityFiveYearOpex = dataQualityAnnualOpex * 5
-  const aiMaintenanceOpexAnnual = aiInvestmentTotal * AI_MAINTENANCE_RATE
-  const aiMaintenanceFiveYearOpex = aiMaintenanceOpexAnnual * 4
-
-  const availMult = dataAvailabilityPct / 100
-  const relMult = dataReliabilityPct / 100
-
-  const sFd = aiInvestmentCdfUpliftFactor(aiFraudDetection)
-  const sDm = aiInvestmentCdfUpliftFactor(aiDataMining)
-  const sCx = aiInvestmentCdfUpliftFactor(aiCxEnhancement)
-
-  const fdAnnualBenefit =
-    aiFraudDetection > 0 ? AI_ALPHA_FD * AI_UPLIFT_NOMINAL_CAP_USD * availMult * sFd : 0
-  const dmAnnualBenefit =
-    aiDataMining > 0 ? AI_ALPHA_DM * AI_UPLIFT_NOMINAL_CAP_USD * availMult * sDm : 0
-  const cxAnnualBenefit =
-    aiCxEnhancement > 0 ? AI_ALPHA_CX * AI_UPLIFT_NOMINAL_CAP_USD * relMult * sCx : 0
-
-  const aiAnnualUplift = fdAnnualBenefit + dmAnnualBenefit + cxAnnualBenefit
-  const aiAdjustedAnnualBenefit = annualBenefits + aiAnnualUplift
-
-  const aiAdjustedRows = useMemo(
-    () =>
-      buildAiAdjustedRows(rows, {
-        aiCapexYear1: aiInvestmentTotal,
-        aiMaintenanceOpexAnnual,
-        dataQualityOpexAnnual: dataQualityAnnualOpex,
-      }),
-    [
-      rows,
-      aiInvestmentTotal,
-      aiMaintenanceOpexAnnual,
-      dataQualityAnnualOpex,
-    ],
-  )
-
-  const aiTotalCost5 =
-    aiAdjustedRows.length > 0
-      ? aiAdjustedRows[aiAdjustedRows.length - 1].cumulativeCost
-      : 0
-  const aiTotalReturn5 = aiAdjustedAnnualBenefit * 5
-  const aiRoiPct =
-    aiTotalCost5 === 0
-      ? null
-      : ((aiTotalReturn5 - aiTotalCost5) / aiTotalCost5) * 100
-
-  const aiRoiCurve = useMemo(
-    () => buildRoiCurve(aiAdjustedRows, aiAdjustedAnnualBenefit),
-    [aiAdjustedRows, aiAdjustedAnnualBenefit],
-  )
-
-  const aiBreakevenPoint = useMemo(() => {
-    if (aiAdjustedAnnualBenefit <= 0) return null
-    return findRoiBreakeven(aiRoiCurve)
-  }, [aiRoiCurve, aiAdjustedAnnualBenefit])
-
-  const aiBreakevenExplanation = useMemo(() => {
-    if (aiAdjustedAnnualBenefit <= 0) {
-      return {
-        headline: null,
-        body: 'Fund at least one AI initiative or set positive baseline benefits to chart when cumulative value catches cumulative investment.',
-      }
-    }
-    if (aiBreakevenPoint) {
-      const baselineHeadline = breakevenPoint
-        ? ` Baseline (no AI) breaks even at ${breakevenPoint.tStar.toFixed(2)} yrs.`
-        : ''
-      return {
-        headline: `${aiBreakevenPoint.tStar.toFixed(2)} years from program start`,
-        body: `With AI CapEx, AI maintenance OpEx, Data Quality OpEx, and bell-curve uplift folded in, the cumulative curves intersect at about ${formatCurrency(aiBreakevenPoint.amount)}.${baselineHeadline}`,
-      }
-    }
-    const last = aiRoiCurve[aiRoiCurve.length - 1]
-    const lastGap = last.cumulativeBenefit - last.cumulativeCost
-    const alwaysAhead = aiRoiCurve.every(
-      (p) => p.t === 0 || p.cumulativeBenefit - p.cumulativeCost >= -1,
-    )
-    if (alwaysAhead && lastGap >= -1) {
-      return {
-        headline: 'No separate recovery crossing',
-        body: 'Benefits meet or exceed costs at every year-end on this AI-adjusted path—there is no underwater period to recover from.',
-      }
-    }
-    return {
-      headline: 'Not within five years',
-      body: 'Cumulative costs (with AI CapEx, maintenance OpEx, and Data Quality OpEx) remain ahead through Year 5. Tune AI spend near maximum marginal efficiency (~$100k per initiative line) or improve Data Quality to pull break-even left.',
-    }
-  }, [aiAdjustedAnnualBenefit, aiBreakevenPoint, aiRoiCurve, breakevenPoint])
-
   function handleOpexChange(index, raw) {
     setOpexByYear((prev) => {
       const next = [...prev]
@@ -2798,7 +2593,7 @@ function App() {
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
   const isRoi = activeView === 'roi'
-  const isAi = activeView === 'ai'
+  const isSensitivity = activeView === 'sensitivity'
   const isPanels = activeView === 'panels'
   const isAdoption = activeView === 'adoption'
   const isDiffusion = activeView === 'diffusion'
@@ -2809,8 +2604,8 @@ function App() {
         ? 'Budget Planning and Cost Estimation'
         : activeView === 'panels'
           ? 'Governance, CI/CD & Uptime Simulators'
-          : activeView === 'ai'
-            ? 'Innovation & AI Integration'
+          : activeView === 'sensitivity'
+            ? 'Panel 7: ROI Sensitivity Explorer'
             : activeView === 'adoption'
               ? 'Panel 8: Adoption Curve'
               : activeView === 'diffusion'
@@ -2875,12 +2670,12 @@ function App() {
             </button>
             <button
               type="button"
-              className={`sidebar-nav-item${isAi ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('ai')}
+              className={`sidebar-nav-item${isSensitivity ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('sensitivity')}
             >
-              <IconAi className="sidebar-nav-svg" />
+              <IconRoiSensitivity className="sidebar-nav-svg" />
               <span className="sidebar-nav-label">
-                Innovation &amp; AI Integration
+                Panel 7: ROI Sensitivity Explorer
               </span>
             </button>
             <button
@@ -3273,44 +3068,25 @@ function App() {
         </div>
 
         <div
-          className="ai-route"
-          id="ai-route"
-          hidden={!isAi}
-          aria-hidden={!isAi}
-          style={{ display: isAi ? 'block' : 'none' }}
+          className="sensitivity-route"
+          id="sensitivity-route"
+          hidden={!isSensitivity}
+          aria-hidden={!isSensitivity}
+          style={{ display: isSensitivity ? 'block' : 'none' }}
         >
-          <Panel7Ai
-            totalCost5={totalCost5}
-            totalBenefits5={totalBenefits5}
-            baselineRoiPct={roiPct}
-            annualBenefits={annualBenefits}
-            aiFraudDetection={aiFraudDetection}
-            aiCxEnhancement={aiCxEnhancement}
-            aiDataMining={aiDataMining}
-            setAiFraudDetection={handleAiFraudDetectionChange}
-            setAiCxEnhancement={handleAiCxEnhancementChange}
-            setAiDataMining={handleAiDataMiningChange}
-            dataAvailabilityPct={dataAvailabilityPct}
-            setDataAvailabilityPct={setDataAvailabilityPct}
-            dataReliabilityPct={dataReliabilityPct}
-            setDataReliabilityPct={setDataReliabilityPct}
-            aiInvestmentTotal={aiInvestmentTotal}
-            aiBudgetCap={AI_BUDGET_CAP}
-            dataQualityAnnualOpex={dataQualityAnnualOpex}
-            dataQualityFiveYearOpex={dataQualityFiveYearOpex}
-            aiMaintenanceOpexAnnual={aiMaintenanceOpexAnnual}
-            aiMaintenanceFiveYearOpex={aiMaintenanceFiveYearOpex}
-            fdAnnualBenefit={fdAnnualBenefit}
-            dmAnnualBenefit={dmAnnualBenefit}
-            cxAnnualBenefit={cxAnnualBenefit}
-            aiAnnualUplift={aiAnnualUplift}
-            aiAdjustedAnnualBenefit={aiAdjustedAnnualBenefit}
-            aiTotalCost5={aiTotalCost5}
-            aiTotalReturn5={aiTotalReturn5}
-            aiRoiPct={aiRoiPct}
-            aiRoiCurve={aiRoiCurve}
-            aiBreakevenPoint={aiBreakevenPoint}
-            aiBreakevenExplanation={aiBreakevenExplanation}
+          <Panel7RoiSensitivity
+            rows={rows}
+            baselineAnnualBenefit={annualBenefits}
+            fraudInvestment={aiFraudInvestment}
+            setFraudInvestment={setAiFraudInvestment}
+            cxInvestment={aiCxInvestment}
+            setCxInvestment={setAiCxInvestment}
+            dataMiningInvestment={aiDataMiningInvestment}
+            setDataMiningInvestment={setAiDataMiningInvestment}
+            dataAvailability={dataAvailability}
+            setDataAvailability={setDataAvailability}
+            dataReliability={dataReliability}
+            setDataReliability={setDataReliability}
           />
         </div>
 
