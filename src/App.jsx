@@ -48,6 +48,17 @@ function IconHelp({ className = '' }) {
   )
 }
 
+function IconPanels({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"
+      />
+    </svg>
+  )
+}
+
 function parseMoney(s) {
   if (s === '' || s === null || s === undefined) return 0
   const n = Number(String(s).replace(/,/g, '').trim())
@@ -404,6 +415,451 @@ function AppTopHeader({ showBack, title, onBackToHome }) {
   )
 }
 
+/* ─────────────────────────────────────────────
+   PANEL 4 – Governance & SLA
+───────────────────────────────────────────── */
+function Panel4Governance() {
+  const slaRows = [
+    { metric: 'Target uptime SLA', value: '99.9%', note: '≤ 8.76 hrs downtime/yr' },
+    { metric: 'Incident response (P1)', value: '< 15 min', note: 'Paging + war-room within 15 min' },
+    { metric: 'Incident response (P2)', value: '< 1 hr', note: 'Business-hours acknowledgement' },
+    { metric: 'Planned maintenance window', value: 'Sun 02:00–04:00 UTC', note: 'Monthly, 4-week notice required' },
+    { metric: 'Change-freeze periods', value: 'Last 5 business days of quarter', note: 'No prod deploys without CAB approval' },
+  ]
+
+  const committeeItems = [
+    { cadence: 'Monthly', body: 'Cloud Steering Committee', agenda: 'Budget actuals vs forecast, roadmap review, SLA scorecard' },
+    { cadence: 'Weekly', body: 'Engineering Leadership Sync', agenda: 'Pipeline health, incident retrospectives, upcoming deployments' },
+    { cadence: 'Quarterly', body: 'Executive Business Review', agenda: 'Strategic alignment, vendor performance, risk posture' },
+  ]
+
+  return (
+    <main className="migration-panel" id="panel4-governance">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud management · Section 4</p>
+        <p className="panel-title-context">Governance &amp; SLA Terms</p>
+        <p className="panel-subtitle">
+          Decision structures, committee cadences, and uptime commitments
+          governing the cloud deployment programme.
+        </p>
+      </header>
+
+      {/* Decision structure */}
+      <section className="panel-card" aria-labelledby="p4-committee-heading">
+        <h2 id="p4-committee-heading" className="card-heading">Decision Structure</h2>
+        <p className="card-lead">
+          Three governance bodies provide oversight at different cadences.
+          The Cloud Steering Committee meets monthly and holds final authority
+          over budget deviations and architecture decisions.
+        </p>
+        <div className="p4-committee-grid">
+          {committeeItems.map((c) => (
+            <div key={c.body} className="p4-committee-card">
+              <span className="p4-cadence-badge">{c.cadence}</span>
+              <p className="p4-committee-name">{c.body}</p>
+              <p className="p4-committee-agenda">{c.agenda}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* SLA table */}
+      <section className="panel-card" aria-labelledby="p4-sla-heading">
+        <h2 id="p4-sla-heading" className="card-heading">SLA Terms</h2>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Metric</th>
+                <th scope="col">Commitment</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slaRows.map((r) => (
+                <tr key={r.metric}>
+                  <td>{r.metric}</td>
+                  <td className="num-strong">{r.value}</td>
+                  <td className="p4-sla-note">{r.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   PANEL 5 – CI/CD Pipeline Efficiency Simulator
+───────────────────────────────────────────── */
+function Panel5CiCd() {
+  const [automationPct, setAutomationPct] = useState(50)
+  const [teamSize, setTeamSize] = useState(10)
+
+  // Model: baseline deploy frequency = 2/week per 5 devs
+  // automation > 70% unlocks a step-change multiplier
+  const baseFreq = (teamSize / 5) * 2
+  const autoFactor = automationPct >= 70
+    ? 1.5 + ((automationPct - 70) / 30) * 0.4
+    : 0.6 + (automationPct / 70) * 0.4
+  const deployFreq = Math.round(baseFreq * autoFactor * 10) / 10
+
+  // Failure rate: baseline 25%, drops with automation
+  const baseFailure = 25
+  const failureReduction = automationPct >= 70
+    ? 0.4 + ((automationPct - 70) / 30) * 0.2
+    : (automationPct / 70) * 0.4
+  const failureRate = Math.round(Math.max(3, baseFailure * (1 - failureReduction)) * 10) / 10
+
+  let healthStatus
+  let healthClass
+  if (automationPct >= 70) {
+    healthStatus = 'Healthy'
+    healthClass = 'p5-health-green'
+  } else if (automationPct >= 40) {
+    healthStatus = 'Improving'
+    healthClass = 'p5-health-amber'
+  } else {
+    healthStatus = 'At Risk'
+    healthClass = 'p5-health-red'
+  }
+
+  return (
+    <main className="migration-panel" id="panel5-cicd">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud management · Section 5</p>
+        <p className="panel-title-context">CI/CD Pipeline Efficiency Simulator</p>
+        <p className="panel-subtitle">
+          Adjust automation coverage and team size to see how deployment
+          frequency and failure rate change. Automation above 70 % unlocks
+          a step-change improvement.
+        </p>
+      </header>
+
+      <section className="panel-card" aria-labelledby="p5-controls-heading">
+        <h2 id="p5-controls-heading" className="card-heading">Controls</h2>
+        <div className="p5-sliders">
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p5-automation">
+              Automation coverage: <strong>{automationPct}%</strong>
+            </label>
+            <input
+              id="p5-automation"
+              type="range"
+              min="0"
+              max="100"
+              value={automationPct}
+              onChange={(e) => setAutomationPct(Number(e.target.value))}
+              className="p5-range"
+              aria-label="Automation percentage"
+            />
+            <div className="p5-range-labels">
+              <span>0%</span><span>50%</span><span>100%</span>
+            </div>
+          </div>
+          <div className="p5-slider-row">
+            <label className="p5-slider-label" htmlFor="p5-teamsize">
+              Team size: <strong>{teamSize} engineers</strong>
+            </label>
+            <input
+              id="p5-teamsize"
+              type="range"
+              min="2"
+              max="50"
+              value={teamSize}
+              onChange={(e) => setTeamSize(Number(e.target.value))}
+              className="p5-range"
+              aria-label="Team size"
+            />
+            <div className="p5-range-labels">
+              <span>2</span><span>26</span><span>50</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel-card" aria-labelledby="p5-results-heading">
+        <h2 id="p5-results-heading" className="card-heading">Simulation Results</h2>
+        <div className="p5-results-grid">
+          <div className={`p5-result-tile ${healthClass}`}>
+            <span className="p5-result-label">Deployment Health</span>
+            <span className="p5-result-value p5-health-value">{healthStatus}</span>
+            <span className="p5-result-sub">
+              {automationPct >= 70
+                ? `${automationPct}% automation → step-change unlocked`
+                : `Raise automation above 70% to unlock step-change gains`}
+            </span>
+          </div>
+          <div className="p5-result-tile p5-neutral">
+            <span className="p5-result-label">Deploy Frequency</span>
+            <span className="p5-result-value">{deployFreq}<span className="p5-result-unit">/wk</span></span>
+            <span className="p5-result-sub">Across {teamSize}-person team</span>
+          </div>
+          <div className="p5-result-tile p5-neutral">
+            <span className="p5-result-label">Failure Rate</span>
+            <span className="p5-result-value">{failureRate}<span className="p5-result-unit">%</span></span>
+            <span className="p5-result-sub">Change failure rate vs {baseFailure}% baseline</span>
+          </div>
+        </div>
+      </section>
+
+      {automationPct >= 70 && (
+        <div className="p5-insight-banner" role="status">
+          <strong>Key insight:</strong> With {automationPct}% automation, deploy frequency is roughly{' '}
+          {Math.round(((deployFreq / (baseFreq * 0.6)) - 1) * 100)}% higher and failure rate is{' '}
+          {Math.round((1 - failureRate / baseFailure) * 100)}% lower compared to a
+          fully manual baseline.
+        </div>
+      )}
+    </main>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   PANEL 6 – Uptime vs Cost Simulator
+───────────────────────────────────────────── */
+function Panel6Uptime() {
+  const [redundancy, setRedundancy] = useState(3)
+  const [multiRegion, setMultiRegion] = useState(false)
+
+  // Non-linear uptime model (each level of redundancy gives diminishing gains)
+  const uptimeBase = [95.0, 99.0, 99.5, 99.95, 99.99, 99.999]
+  const uptimeSingle = uptimeBase[redundancy - 1]
+  const uptimeMulti  = Math.min(99.999, uptimeSingle + [0, 0.5, 0.3, 0.04, 0.009, 0.0009][redundancy - 1])
+  const uptime = multiRegion ? uptimeMulti : uptimeSingle
+
+  // Monthly cost model (non-linear — redundancy compounds)
+  const baseCost = 5000
+  const regionMult = multiRegion ? 1.85 : 1
+  const monthlyCost = Math.round(baseCost * Math.pow(redundancy, 1.7) * regionMult)
+
+  // Hours of downtime per year from uptime %
+  const downtimeHrs = Math.round(((100 - uptime) / 100) * 8760 * 10) / 10
+
+  const isOptimal = redundancy === 4
+  const levels = [1, 2, 3, 4, 5]
+
+  // Build curve data for all levels at current region setting
+  const curvePoints = levels.map((lvl) => {
+    const ut = multiRegion
+      ? Math.min(99.999, uptimeBase[lvl - 1] + [0, 0.5, 0.3, 0.04, 0.009, 0.0009][lvl - 1])
+      : uptimeBase[lvl - 1]
+    const cost = Math.round(baseCost * Math.pow(lvl, 1.7) * regionMult)
+    return { lvl, ut, cost }
+  })
+
+  // Simple SVG scatter/line chart
+  const svgW = 560
+  const svgH = 280
+  const padL = 64
+  const padR = 24
+  const padT = 28
+  const padB = 52
+  const innerW = svgW - padL - padR
+  const innerH = svgH - padT - padB
+  const minCost = curvePoints[0].cost * 0.8
+  const maxCost = curvePoints[4].cost * 1.1
+  const minUt = 94
+  const maxUt = 100
+
+  function xAt(cost) {
+    return padL + ((cost - minCost) / (maxCost - minCost)) * innerW
+  }
+  function yAt(ut) {
+    return padT + innerH * (1 - (ut - minUt) / (maxUt - minUt))
+  }
+
+  const polyPoints = curvePoints
+    .map((p) => `${xAt(p.cost)},${yAt(p.ut)}`)
+    .join(' ')
+
+  return (
+    <main className="migration-panel" id="panel6-uptime">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud management · Section 6</p>
+        <p className="panel-title-context">Uptime vs Cost Simulator</p>
+        <p className="panel-subtitle">
+          Adjust redundancy level and region mode to see real-time uptime
+          and monthly cost trade-offs. Non-linear cost curve — optimal
+          trade-off is typically at redundancy level 4.
+        </p>
+      </header>
+
+      <section className="panel-card" aria-labelledby="p6-controls-heading">
+        <h2 id="p6-controls-heading" className="card-heading">Controls</h2>
+        <div className="p6-controls">
+          <div className="p6-slider-row">
+            <label className="p5-slider-label" htmlFor="p6-redundancy">
+              Redundancy level: <strong>{redundancy}</strong>
+              {isOptimal && <span className="p6-optimal-badge"> ★ Optimal</span>}
+            </label>
+            <input
+              id="p6-redundancy"
+              type="range"
+              min="1"
+              max="5"
+              value={redundancy}
+              onChange={(e) => setRedundancy(Number(e.target.value))}
+              className="p5-range"
+              aria-label="Redundancy level"
+            />
+            <div className="p5-range-labels">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            </div>
+          </div>
+          <div className="p6-toggle-row">
+            <span className="p5-slider-label">Region mode:</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={multiRegion}
+              className={`p6-toggle${multiRegion ? ' p6-toggle-on' : ''}`}
+              onClick={() => setMultiRegion((v) => !v)}
+            >
+              <span className="p6-toggle-knob" />
+            </button>
+            <span className="p6-toggle-label">
+              {multiRegion ? 'Multi-Region' : 'Single Region'}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel-card" aria-labelledby="p6-results-heading">
+        <h2 id="p6-results-heading" className="card-heading">Trade-off Results</h2>
+        <div className="p5-results-grid">
+          <div className={`p5-result-tile ${isOptimal ? 'p5-health-green' : 'p5-neutral'}`}>
+            <span className="p5-result-label">Monthly Cost</span>
+            <span className="p5-result-value">
+              ${monthlyCost.toLocaleString()}
+            </span>
+            <span className="p5-result-sub">
+              {multiRegion ? 'Multi-Region' : 'Single Region'} · Level {redundancy}
+            </span>
+          </div>
+          <div className={`p5-result-tile ${isOptimal ? 'p5-health-green' : 'p5-neutral'}`}>
+            <span className="p5-result-label">Uptime</span>
+            <span className="p5-result-value">{uptime.toFixed(3)}<span className="p5-result-unit">%</span></span>
+            <span className="p5-result-sub">{downtimeHrs} hrs downtime/yr</span>
+          </div>
+          <div className={`p5-result-tile ${isOptimal ? 'p5-health-green' : 'p5-neutral'}`}>
+            <span className="p5-result-label">Recommendation</span>
+            <span className="p5-result-value p5-health-value" style={{ fontSize: '1rem' }}>
+              {isOptimal ? 'Optimal' : redundancy < 4 ? 'Under-invested' : 'Diminishing returns'}
+            </span>
+            <span className="p5-result-sub">
+              {isOptimal
+                ? 'Level 4 delivers 99.95% uptime at the best cost/uptime ratio'
+                : redundancy < 4
+                ? 'Increase redundancy to improve reliability'
+                : 'Marginal uptime gains cost significantly more'}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Uptime vs Cost curve */}
+      <section className="panel-card" aria-labelledby="p6-chart-heading">
+        <h2 id="p6-chart-heading" className="card-heading">Cost vs Uptime Curve</h2>
+        <p className="card-lead">
+          Non-linear cost curve across all five redundancy levels
+          ({multiRegion ? 'Multi-Region' : 'Single Region'} mode).
+          The selected level is highlighted.
+        </p>
+        <svg
+          className="p6-chart"
+          viewBox={`0 0 ${svgW} ${svgH}`}
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label="Cost vs uptime trade-off chart"
+        >
+          <title>Monthly cost vs uptime percentage across redundancy levels</title>
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+            const ut = minUt + f * (maxUt - minUt)
+            const y = yAt(ut)
+            return (
+              <g key={f}>
+                <line x1={padL} y1={y} x2={padL + innerW} y2={y} className="chart-grid-line" />
+                <text x={padL - 6} y={y + 4} textAnchor="end" className="chart-axis-label">
+                  {ut.toFixed(1)}%
+                </text>
+              </g>
+            )
+          })}
+          {/* Axis labels */}
+          <text x={padL + innerW / 2} y={svgH - 6} textAnchor="middle" className="chart-axis-label">
+            Monthly cost ($)
+          </text>
+          <text x={14} y={padT + innerH / 2} textAnchor="middle" className="chart-axis-label" transform={`rotate(-90 14 ${padT + innerH / 2})`}>
+            Uptime %
+          </text>
+          {/* Curve */}
+          <polyline
+            points={polyPoints}
+            fill="none"
+            stroke="var(--dash-accent)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* Dots */}
+          {curvePoints.map((p) => {
+            const isSelected = p.lvl === redundancy
+            return (
+              <g key={p.lvl}>
+                <circle
+                  cx={xAt(p.cost)}
+                  cy={yAt(p.ut)}
+                  r={isSelected ? 8 : 5}
+                  fill={isSelected ? 'var(--dash-accent)' : 'white'}
+                  stroke="var(--dash-accent)"
+                  strokeWidth="2"
+                />
+                <text
+                  x={xAt(p.cost)}
+                  y={yAt(p.ut) - 13}
+                  textAnchor="middle"
+                  className="chart-axis-label"
+                  fontWeight={isSelected ? '700' : '400'}
+                >
+                  L{p.lvl}
+                </text>
+              </g>
+            )
+          })}
+          {/* Optimal callout */}
+          {(() => {
+            const opt = curvePoints[3]
+            return (
+              <text
+                x={xAt(opt.cost) + 12}
+                y={yAt(opt.ut)}
+                className="chart-axis-label"
+                fill="var(--dash-accent)"
+                fontWeight="700"
+              >
+                ★ Optimal
+              </text>
+            )
+          })()}
+        </svg>
+      </section>
+
+      {isOptimal && (
+        <div className="p5-insight-banner" role="status">
+          <strong>Level 4 selected:</strong> 99.95% uptime at ~${monthlyCost.toLocaleString()}/month
+          {multiRegion ? ' (Multi-Region)' : ' (Single Region)'}. This is the recommended
+          balance between reliability and cost — Level 5 adds &lt;0.05% more uptime at
+          significantly higher spend.
+        </div>
+      )}
+    </main>
+  )
+}
+
 function RoiValuePanel() {
   return (
     <main className="migration-panel">
@@ -576,12 +1032,15 @@ function App() {
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
   const isRoi = activeView === 'roi'
+  const isPanels = activeView === 'panels'
   const topHeaderTitle =
     activeView === 'home'
       ? 'Technology Benefit Simulator'
       : activeView === 'budget'
         ? 'Budget Planning and Cost Estimation'
-        : 'ROI and Value Analysis'
+        : activeView === 'panels'
+          ? 'Governance, CI/CD & Uptime Simulators'
+          : 'ROI and Value Analysis'
 
   return (
     <div className="app-shell">
@@ -627,6 +1086,16 @@ function App() {
               <IconRoiValue className="sidebar-nav-svg" />
               <span className="sidebar-nav-label">
                 ROI and Value Analysis
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isPanels ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('panels')}
+            >
+              <IconPanels className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Governance, CI/CD &amp; Uptime
               </span>
             </button>
           </nav>
@@ -938,6 +1407,18 @@ function App() {
           style={{ display: isRoi ? 'block' : 'none' }}
         >
           <RoiValuePanel />
+        </div>
+
+        <div
+          className="panels-route"
+          id="panels-route"
+          hidden={!isPanels}
+          aria-hidden={!isPanels}
+          style={{ display: isPanels ? 'block' : 'none' }}
+        >
+          <Panel4Governance />
+          <Panel5CiCd />
+          <Panel6Uptime />
         </div>
         </div>
       </div>
