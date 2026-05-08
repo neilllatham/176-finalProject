@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import './App.css'
 
 const YEARS = [1, 2, 3, 4, 5]
@@ -114,10 +114,6 @@ function parsePercent(s) {
   if (s === '' || s === null || s === undefined) return 0
   const n = Number(String(s).trim())
   return Number.isFinite(n) ? n : 0
-}
-
-function clamp(n, min, max) {
-  return Math.min(max, Math.max(min, n))
 }
 
 function formatCurrency(n) {
@@ -647,95 +643,6 @@ function GrowthChart({ rows, maxSeries }) {
         className="chart-title"
       >
         Dollars (USD)
-      </text>
-    </svg>
-  )
-}
-
-function RoiNetValueTrendChart({ rows }) {
-  const w = 640
-  const h = 300
-  const padL = 56
-  const padR = 24
-  const padT = 28
-  const padB = 52
-  const innerW = w - padL - padR
-  const innerH = h - padT - padB
-  const minV = Math.min(0, ...rows.map((r) => r.net))
-  const maxV = Math.max(0, ...rows.map((r) => r.net))
-  const span = Math.max(1, maxV - minV)
-
-  function xAt(i) {
-    if (rows.length <= 1) return padL + innerW / 2
-    return padL + (i / (rows.length - 1)) * innerW
-  }
-
-  function yAt(v) {
-    return padT + ((maxV - v) / span) * innerH
-  }
-
-  const zeroY = yAt(0)
-  const path = rows.map((r, i) => `${xAt(i)},${yAt(r.net)}`).join(' ')
-
-  return (
-    <svg
-      className="roi-net-chart"
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label="Annual net value trend by year"
-    >
-      <title>Annual net value trend</title>
-      {[0, 0.25, 0.5, 0.75, 1].map((t) => {
-        const value = maxV - t * span
-        const y = yAt(value)
-        return (
-          <g key={t}>
-            <line x1={padL} y1={y} x2={padL + innerW} y2={y} className="chart-grid-line" />
-            <text x={padL - 8} y={y + 4} textAnchor="end" className="chart-axis-label">
-              {Math.abs(value) >= 1_000_000
-                ? `${(value / 1_000_000).toFixed(1)}M`
-                : Math.abs(value) >= 1000
-                  ? `${Math.round(value / 1000)}k`
-                  : Math.round(value)}
-            </text>
-          </g>
-        )
-      })}
-
-      <line x1={padL} y1={zeroY} x2={padL + innerW} y2={zeroY} className="roi-net-zero-line" />
-
-      {rows.map((r, i) => (
-        <g key={r.year}>
-          <line
-            x1={xAt(i)}
-            y1={zeroY}
-            x2={xAt(i)}
-            y2={yAt(r.net)}
-            className={r.net >= 0 ? 'roi-net-stem-positive' : 'roi-net-stem-negative'}
-          />
-          <circle
-            cx={xAt(i)}
-            cy={yAt(r.net)}
-            r={4}
-            className={r.net >= 0 ? 'roi-net-dot-positive' : 'roi-net-dot-negative'}
-          />
-          <text x={xAt(i)} y={h - padB + 34} textAnchor="middle" className="chart-axis-label chart-axis-year">
-            Year {r.year}
-          </text>
-        </g>
-      ))}
-
-      <polyline
-        className="roi-line roi-line-net"
-        points={path}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      <text x={padL + innerW / 2} y={18} textAnchor="middle" className="chart-title">
-        Annual net value (benefit minus cost)
       </text>
     </svg>
   )
@@ -2471,215 +2378,26 @@ function Panel9Diffusion({
   )
 }
 
-function RoiValuePanel({
-  rows,
-  annualDowntimeSavings,
-  annualProductivitySavings,
-  annualDataCenterAvoided,
-  annualBenefits,
-  totalCost5,
-  totalBenefits5,
-  roiPct,
-  breakevenPoint,
-  automationPct,
-  teamSize,
-  p5FailureRate,
-  p5DeployFreq,
-  redundancy,
-  multiRegion,
-  p6Uptime,
-  suggestedOpexPerYearAdjusted,
-  suggestedDowntimeSavings,
-  suggestedProductivitySavings,
-  syncSimulatorSavings,
-  syncSuggestedOpexToBudget,
-}) {
-  const annualCostAverage = rows.length ? totalCost5 / rows.length : 0
-  const annualNetAverage = annualBenefits - annualCostAverage
-  const paybackMonths = annualBenefits > 0 ? (totalCost5 / annualBenefits) * 12 : null
-
-  const valueRows = rows.map((r) => {
-    const net = annualBenefits - r.totalCost
-    const marginPct = r.totalCost === 0 ? null : (net / r.totalCost) * 100
-    return {
-      year: r.year,
-      totalCost: r.totalCost,
-      annualBenefits,
-      net,
-      marginPct,
-    }
-  })
-
-  const bestYear = valueRows.reduce(
-    (best, row) => (row.net > best.net ? row : best),
-    valueRows[0] ?? { year: '—', net: 0 },
-  )
-  const worstYear = valueRows.reduce(
-    (worst, row) => (row.net < worst.net ? row : worst),
-    valueRows[0] ?? { year: '—', net: 0 },
-  )
-
-  const benefitMix = [
-    { label: 'Downtime savings', value: parseMoney(annualDowntimeSavings) },
-    { label: 'Productivity savings', value: parseMoney(annualProductivitySavings) },
-    { label: 'Data center avoided', value: parseMoney(annualDataCenterAvoided) },
-  ]
-  const mixDenominator = benefitMix.reduce((acc, item) => acc + item.value, 0)
-
+function RoiValuePanel() {
   return (
     <main className="migration-panel">
       <header className="panel-header panel-header-context">
         <p className="migration-eyebrow">Cloud migration simulator</p>
         <p className="panel-title-context">ROI &amp; value drivers</p>
         <p className="panel-subtitle">
-          Live ROI narrative linked to Budget Planning and simulator panels,
-          showing how cost, uptime, and delivery assumptions shape value.
+          Extend the budget model with deeper return-on-investment and business
+          value narratives for leadership review.
         </p>
       </header>
-
-      <section className="summary-strip" aria-label="ROI panel summary">
-        <div className="summary-tile summary-tile-accent">
-          <span className="summary-label">5-yr cost baseline</span>
-          <span className="summary-value">{formatCurrency(totalCost5)}</span>
-        </div>
-        <div className="summary-tile summary-tile-positive">
-          <span className="summary-label">5-yr modeled benefits</span>
-          <span className="summary-value">{formatCurrency(totalBenefits5)}</span>
-        </div>
-        <div className="summary-tile">
-          <span className="summary-label">Avg annual net value</span>
-          <span className="summary-value">{formatCurrency(annualNetAverage)}</span>
-        </div>
-        <div className="summary-tile summary-tile-roi">
-          <span className="summary-label">Portfolio ROI</span>
-          <span className="summary-value">
-            {roiPct === null ? '—' : `${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(1)}%`}
-          </span>
-        </div>
-        <div className="summary-tile">
-          <span className="summary-label">Modeled payback</span>
-          <span className="summary-value">
-            {paybackMonths === null ? '—' : `${paybackMonths.toFixed(1)} mo`}
-          </span>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="roi-linked-controls-heading">
-        <h2 id="roi-linked-controls-heading" className="card-heading">
-          Linked assumptions snapshot
+      <section className="panel-card" aria-labelledby="roi-panel-placeholder-heading">
+        <h2 id="roi-panel-placeholder-heading" className="card-heading">
+          Panel 2 (placeholder)
         </h2>
-        <div className="roi-link-grid">
-          <div className="roi-link-item">
-            <span className="roi-link-k">P6 Uptime model</span>
-            <span className="roi-link-v">
-              {p6Uptime.toFixed(3)}% uptime · redundancy {redundancy} · {multiRegion ? 'multi-region' : 'single region'}
-            </span>
-          </div>
-          <div className="roi-link-item">
-            <span className="roi-link-k">P5 Delivery model</span>
-            <span className="roi-link-v">
-              {automationPct}% automation · team size {teamSize} · failure rate {p5FailureRate}% · deploy freq {p5DeployFreq}/week
-            </span>
-          </div>
-          <div className="roi-link-item">
-            <span className="roi-link-k">Suggestion sync state</span>
-            <span className="roi-link-v">
-              Savings sync {syncSimulatorSavings ? 'ON' : 'OFF'} · OpEx sync {syncSuggestedOpexToBudget ? 'ON' : 'OFF'}
-            </span>
-          </div>
-          <div className="roi-link-item">
-            <span className="roi-link-k">Current suggested annual values</span>
-            <span className="roi-link-v">
-              OpEx {formatCurrency(suggestedOpexPerYearAdjusted)} · downtime {formatCurrency(suggestedDowntimeSavings)} · productivity {formatCurrency(suggestedProductivitySavings)}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="roi-benefit-mix-heading">
-        <h2 id="roi-benefit-mix-heading" className="card-heading">Benefit composition</h2>
         <p className="card-lead">
-          Annual benefit mix reflects the Budget Planning assumptions and updates
-          as simulator-driven values change.
+          This workspace will host ROI and value analysis—scenario comparison,
+          sensitivity views, and executive-ready summaries tied to the figures
+          from Budget Planning and Cost Estimation.
         </p>
-        <div className="roi-mix-list">
-          {benefitMix.map((item) => {
-            const pct = mixDenominator <= 0 ? 0 : (item.value / mixDenominator) * 100
-            return (
-              <div className="roi-mix-row" key={item.label}>
-                <div className="roi-mix-meta">
-                  <span className="roi-mix-label">{item.label}</span>
-                  <span className="roi-mix-value">{formatCurrency(item.value)} ({pct.toFixed(1)}%)</span>
-                </div>
-                <div className="roi-mix-track" aria-hidden>
-                  <span className="roi-mix-fill" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="roi-value-bridge-heading">
-        <h2 id="roi-value-bridge-heading" className="card-heading">Annual value bridge</h2>
-        <p className="card-lead">
-          Year-by-year view of modeled cost versus recurring annual benefits to
-          surface where economics are strongest or weakest.
-        </p>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Year</th>
-                <th scope="col">Annual cost</th>
-                <th scope="col">Annual benefit</th>
-                <th scope="col">Net value</th>
-                <th scope="col">Margin vs cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {valueRows.map((r) => (
-                <tr key={r.year}>
-                  <td>{r.year}</td>
-                  <td className="num">{formatCurrency(r.totalCost)}</td>
-                  <td className="num">{formatCurrency(r.annualBenefits)}</td>
-                  <td className="num num-strong">{formatCurrency(r.net)}</td>
-                  <td className="num">
-                    {r.marginPct === null ? '—' : `${r.marginPct >= 0 ? '+' : ''}${r.marginPct.toFixed(1)}%`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="roi-bridge-foot">
-          <span>
-            Strongest year: Y{bestYear.year} ({formatCurrency(bestYear.net)})
-          </span>
-          <span>
-            Weakest year: Y{worstYear.year} ({formatCurrency(worstYear.net)})
-          </span>
-          <span>
-            Break-even: {breakevenPoint ? `${breakevenPoint.tStar.toFixed(2)} years` : 'not reached in 5 years'}
-          </span>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="roi-net-trend-heading">
-        <h2 id="roi-net-trend-heading" className="card-heading">Net value trend</h2>
-        <p className="card-lead">
-          Trendline of annual net value using current Budget and simulator-linked
-          assumptions.
-        </p>
-        <div className="chart-legend">
-          <span className="legend-item">
-            <span className="legend-line legend-line-netvalue" /> Net value line
-          </span>
-          <span className="legend-item">
-            <span className="legend-line legend-line-netzero" /> Zero-value baseline
-          </span>
-        </div>
-        <RoiNetValueTrendChart rows={valueRows} />
       </section>
     </main>
   )
@@ -2719,26 +2437,12 @@ function App() {
     useState('200000')
   const [annualDataCenterAvoided, setAnnualDataCenterAvoided] =
     useState('250000')
-  const [syncSimulatorSavings, setSyncSimulatorSavings] = useState(true)
-  const [syncSuggestedOpexToBudget, setSyncSuggestedOpexToBudget] = useState(false)
-  const [incidentCostPerHour, setIncidentCostPerHour] = useState(20000)
-  const [savingsPerAvoidedFailure, setSavingsPerAvoidedFailure] = useState(2500)
-  const [cloudOpexMultiplier, setCloudOpexMultiplier] = useState(1)
 
   const [aiFraudInvestment, setAiFraudInvestment] = useState(80000)
   const [aiCxInvestment, setAiCxInvestment] = useState(80000)
   const [aiDataMiningInvestment, setAiDataMiningInvestment] = useState(80000)
   const [dataAvailability, setDataAvailability] = useState(70)
   const [dataReliability, setDataReliability] = useState(70)
-
-  const budgetSlider = {
-    moneyMin: 0,
-    moneyMax: 2000000,
-    moneyStep: 10000,
-    percentMin: -50,
-    percentMax: 50,
-    percentStep: 1,
-  }
 
   const rows = useMemo(() => {
     const numericOpex = opexByYear.map(parseMoney)
@@ -2842,61 +2546,22 @@ function App() {
     })
   }
 
-  function handleOpexSliderChange(index, value) {
-    const clamped = clamp(Number(value), budgetSlider.moneyMin, budgetSlider.moneyMax)
-    handleOpexChange(index, String(Math.round(clamped)))
-  }
-
-  function handleCapexSliderChange(index, value) {
-    const clamped = clamp(Number(value), budgetSlider.moneyMin, budgetSlider.moneyMax)
-    handleCapexChange(index, String(Math.round(clamped)))
-  }
-
-  function handlePercentSliderChange(setter, value) {
-    const clamped = clamp(Number(value), budgetSlider.percentMin, budgetSlider.percentMax)
-    setter(String(clamped))
-  }
-
-  function handleMoneySliderChange(setter, value) {
-    const clamped = clamp(Number(value), budgetSlider.moneyMin, budgetSlider.moneyMax)
-    setter(String(Math.round(clamped)))
-  }
-
-  function handleAnnualDowntimeChange(raw) {
-    setSyncSimulatorSavings(false)
-    setAnnualDowntimeSavings(raw)
-  }
-
-  function handleAnnualProductivityChange(raw) {
-    setSyncSimulatorSavings(false)
-    setAnnualProductivitySavings(raw)
-  }
-
-  useEffect(() => {
-    if (annualOpexChangePct.trim() === '') return
+  function applyAnnualPercentages() {
     const rO = parsePercent(annualOpexChangePct) / 100
-    setOpexByYear((prev) => {
-      const baseRaw = prev[0] ?? ''
-      const base = parseMoney(baseRaw)
-      const next = YEARS.map((_, i) =>
-        i === 0 ? baseRaw : String(Math.round(base * (1 + rO) ** i))
-      )
-      return next.every((v, i) => v === prev[i]) ? prev : next
-    })
-  }, [annualOpexChangePct, opexByYear[0]])
-
-  useEffect(() => {
-    if (annualCapexChangePct.trim() === '') return
     const rC = parsePercent(annualCapexChangePct) / 100
-    setCapexByYear((prev) => {
-      const baseRaw = prev[0] ?? ''
-      const base = parseMoney(baseRaw)
-      const next = YEARS.map((_, i) =>
-        i === 0 ? baseRaw : String(Math.round(base * (1 + rC) ** i))
+    const baseO = parseMoney(opexByYear[0])
+    const baseC = parseMoney(capexByYear[0])
+    setOpexByYear(
+      YEARS.map((_, i) =>
+        String(Math.round(i === 0 ? baseO : baseO * (1 + rO) ** i))
       )
-      return next.every((v, i) => v === prev[i]) ? prev : next
-    })
-  }, [annualCapexChangePct, capexByYear[0]])
+    )
+    setCapexByYear(
+      YEARS.map((_, i) =>
+        String(Math.round(i === 0 ? baseC : baseC * (1 + rC) ** i))
+      )
+    )
+  }
 
   // ── Cross-panel derived values ─────────────────────────────────
   const _uptimeBase = [95.0, 99.0, 99.5, 99.95, 99.99, 99.999]
@@ -2921,54 +2586,15 @@ function App() {
 
   const suggestedOpexPerYear = p6MonthlyCost * 12
   const _p6BaselineDowntimeHrs = ((100 - 95.0) / 100) * 8760
-  const suggestedOpexPerYearAdjusted = Math.round(suggestedOpexPerYear * cloudOpexMultiplier)
-  const suggestedDowntimeSavings =
-    Math.round(
-      Math.max(
-        0,
-        (_p6BaselineDowntimeHrs - p6DowntimeHrs) * incidentCostPerHour,
-      ) / 1000,
-    ) * 1000
+  const suggestedDowntimeSavings = Math.round(Math.max(0, (_p6BaselineDowntimeHrs - p6DowntimeHrs) * 20000) / 1000) * 1000
   const _p5AvoidsPerYear = Math.round(((_p5BaseFailure - p5FailureRate) / 100) * p5DeployFreq * 52)
-  const suggestedProductivitySavings =
-    Math.round((_p5AvoidsPerYear * savingsPerAvoidedFailure) / 1000) * 1000
-
-  useEffect(() => {
-    if (!syncSimulatorSavings) return
-    setAnnualDowntimeSavings(String(suggestedDowntimeSavings))
-  }, [suggestedDowntimeSavings, syncSimulatorSavings])
-
-  useEffect(() => {
-    if (!syncSimulatorSavings) return
-    setAnnualProductivitySavings(String(suggestedProductivitySavings))
-  }, [suggestedProductivitySavings, syncSimulatorSavings])
-
-  useEffect(() => {
-    if (!syncSuggestedOpexToBudget) return
-    const base = suggestedOpexPerYearAdjusted
-    if (annualOpexChangePct.trim() === '') {
-      setOpexByYear((prev) => {
-        const next = YEARS.map(() => String(base))
-        return next.every((v, i) => v === prev[i]) ? prev : next
-      })
-      return
-    }
-    const rO = parsePercent(annualOpexChangePct) / 100
-    setOpexByYear((prev) => {
-      const next = YEARS.map((_, i) =>
-        String(Math.round(i === 0 ? base : base * (1 + rO) ** i))
-      )
-      return next.every((v, i) => v === prev[i]) ? prev : next
-    })
-  }, [syncSuggestedOpexToBudget, suggestedOpexPerYearAdjusted, annualOpexChangePct])
+  const suggestedProductivitySavings = Math.round(_p5AvoidsPerYear * 2500 / 1000) * 1000
 
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
   const isRoi = activeView === 'roi'
   const isSensitivity = activeView === 'sensitivity'
-  const isGovernance = activeView === 'governance'
-  const isCiCd = activeView === 'cicd'
-  const isUptime = activeView === 'uptime'
+  const isPanels = activeView === 'panels'
   const isAdoption = activeView === 'adoption'
   const isDiffusion = activeView === 'diffusion'
   const topHeaderTitle =
@@ -2976,12 +2602,8 @@ function App() {
       ? 'Technology Benefit Simulator'
       : activeView === 'budget'
         ? 'Budget Planning and Cost Estimation'
-        : activeView === 'governance'
-          ? 'Governance Simulator'
-          : activeView === 'cicd'
-            ? 'CI/CD Simulator'
-            : activeView === 'uptime'
-              ? 'Uptime Simulator'
+        : activeView === 'panels'
+          ? 'Governance, CI/CD & Uptime Simulators'
           : activeView === 'sensitivity'
             ? 'Panel 7: ROI Sensitivity Explorer'
             : activeView === 'adoption'
@@ -3038,32 +2660,12 @@ function App() {
             </button>
             <button
               type="button"
-              className={`sidebar-nav-item${isGovernance ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('governance')}
+              className={`sidebar-nav-item${isPanels ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('panels')}
             >
               <IconPanels className="sidebar-nav-svg" />
               <span className="sidebar-nav-label">
-                Governance
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isCiCd ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('cicd')}
-            >
-              <IconPanels className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                CI/CD
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isUptime ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('uptime')}
-            >
-              <IconPanels className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                Uptime
+                Governance, CI/CD &amp; Uptime
               </span>
             </button>
             <button
@@ -3155,8 +2757,7 @@ function App() {
           Yearly OpEx &amp; CapEx
         </h2>
         <p className="card-lead">
-          Enter planned operating and capital spend for each fiscal year (USD),
-          then drag sliders to quickly see cost relationships across years.
+          Enter planned operating and capital spend for each fiscal year (USD).
         </p>
         <div className="year-inputs-table-wrap">
           <table className="year-inputs-table">
@@ -3172,48 +2773,24 @@ function App() {
                 <tr key={y}>
                   <th scope="row">{y}</th>
                   <td>
-                    <div className="field-slider-pair">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="field field-money"
-                        value={opexByYear[i]}
-                        onChange={(e) => handleOpexChange(i, e.target.value)}
-                        aria-label={`Year ${y} OpEx in dollars`}
-                      />
-                      <input
-                        type="range"
-                        className="field-slider"
-                        min={budgetSlider.moneyMin}
-                        max={budgetSlider.moneyMax}
-                        step={budgetSlider.moneyStep}
-                        value={clamp(parseMoney(opexByYear[i]), budgetSlider.moneyMin, budgetSlider.moneyMax)}
-                        onChange={(e) => handleOpexSliderChange(i, e.target.value)}
-                        aria-label={`Year ${y} OpEx slider`}
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="field field-money"
+                      value={opexByYear[i]}
+                      onChange={(e) => handleOpexChange(i, e.target.value)}
+                      aria-label={`Year ${y} OpEx in dollars`}
+                    />
                   </td>
                   <td>
-                    <div className="field-slider-pair">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="field field-money"
-                        value={capexByYear[i]}
-                        onChange={(e) => handleCapexChange(i, e.target.value)}
-                        aria-label={`Year ${y} CapEx in dollars`}
-                      />
-                      <input
-                        type="range"
-                        className="field-slider"
-                        min={budgetSlider.moneyMin}
-                        max={budgetSlider.moneyMax}
-                        step={budgetSlider.moneyStep}
-                        value={clamp(parseMoney(capexByYear[i]), budgetSlider.moneyMin, budgetSlider.moneyMax)}
-                        onChange={(e) => handleCapexSliderChange(i, e.target.value)}
-                        aria-label={`Year ${y} CapEx slider`}
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="field field-money"
+                      value={capexByYear[i]}
+                      onChange={(e) => handleCapexChange(i, e.target.value)}
+                      aria-label={`Year ${y} CapEx in dollars`}
+                    />
                   </td>
                 </tr>
               ))}
@@ -3228,55 +2805,38 @@ function App() {
         </h2>
         <p className="card-lead">
           Compound percentage growth applied from Year 1 through Year 5.
-          Years 2–5 update automatically from Year 1 and the percentage entered below.
+          Replaces Years 2–5 when you apply; edit Year 1 first if needed.
         </p>
         <div className="pct-row">
           <label className="field-label">
             <span>Annual OpEx change (%)</span>
-            <div className="field-slider-pair">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="field field-pct"
-                value={annualOpexChangePct}
-                onChange={(e) => setAnnualOpexChangePct(e.target.value)}
-                placeholder="e.g. 5"
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={budgetSlider.percentMin}
-                max={budgetSlider.percentMax}
-                step={budgetSlider.percentStep}
-                value={clamp(parsePercent(annualOpexChangePct), budgetSlider.percentMin, budgetSlider.percentMax)}
-                onChange={(e) => handlePercentSliderChange(setAnnualOpexChangePct, e.target.value)}
-                aria-label="Annual OpEx change slider"
-              />
-            </div>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="field field-pct"
+              value={annualOpexChangePct}
+              onChange={(e) => setAnnualOpexChangePct(e.target.value)}
+              placeholder="e.g. 5"
+            />
           </label>
           <label className="field-label">
             <span>Annual CapEx change (%)</span>
-            <div className="field-slider-pair">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="field field-pct"
-                value={annualCapexChangePct}
-                onChange={(e) => setAnnualCapexChangePct(e.target.value)}
-                placeholder="e.g. -10"
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={budgetSlider.percentMin}
-                max={budgetSlider.percentMax}
-                step={budgetSlider.percentStep}
-                value={clamp(parsePercent(annualCapexChangePct), budgetSlider.percentMin, budgetSlider.percentMax)}
-                onChange={(e) => handlePercentSliderChange(setAnnualCapexChangePct, e.target.value)}
-                aria-label="Annual CapEx change slider"
-              />
-            </div>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="field field-pct"
+              value={annualCapexChangePct}
+              onChange={(e) => setAnnualCapexChangePct(e.target.value)}
+              placeholder="e.g. -10"
+            />
           </label>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={applyAnnualPercentages}
+          >
+            Apply to Years 2–5
+          </button>
         </div>
       </section>
 
@@ -3284,134 +2844,56 @@ function App() {
         <h2 id="sim-suggestions-heading" className="card-heading">Simulator suggestions</h2>
         <p className="card-lead">
           Live values derived from your <strong>CI/CD</strong> and <strong>Uptime</strong> simulator
-          settings and synchronized to ROI assumptions automatically.
+          settings. Click <strong>Apply</strong> to copy a value into the ROI assumptions below.
         </p>
-        <div className="sim-tuner-grid">
-          <label className="field-label">
-            <span>Downtime incident cost per hour ($)</span>
-            <div className="field-slider-pair">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="field field-money"
-                value={String(incidentCostPerHour)}
-                onChange={(e) => {
-                  const n = parseMoney(e.target.value)
-                  setIncidentCostPerHour(clamp(Math.round(n), 1000, 100000))
-                }}
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={1000}
-                max={100000}
-                step={1000}
-                value={incidentCostPerHour}
-                onChange={(e) => setIncidentCostPerHour(Number(e.target.value))}
-                aria-label="Downtime incident cost per hour slider"
-              />
-            </div>
-          </label>
-          <label className="field-label">
-            <span>Value per avoided failed deployment ($)</span>
-            <div className="field-slider-pair">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="field field-money"
-                value={String(savingsPerAvoidedFailure)}
-                onChange={(e) => {
-                  const n = parseMoney(e.target.value)
-                  setSavingsPerAvoidedFailure(clamp(Math.round(n), 500, 10000))
-                }}
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={500}
-                max={10000}
-                step={100}
-                value={savingsPerAvoidedFailure}
-                onChange={(e) => setSavingsPerAvoidedFailure(Number(e.target.value))}
-                aria-label="Value per avoided failure slider"
-              />
-            </div>
-          </label>
-          <label className="field-label">
-            <span>Cloud OpEx scenario multiplier</span>
-            <div className="field-slider-pair">
-              <input
-                type="number"
-                inputMode="decimal"
-                className="field field-pct"
-                min={0.5}
-                max={2}
-                step={0.05}
-                value={cloudOpexMultiplier}
-                onChange={(e) => {
-                  const n = Number(e.target.value)
-                  if (!Number.isFinite(n)) return
-                  setCloudOpexMultiplier(clamp(n, 0.5, 2))
-                }}
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={0.5}
-                max={2}
-                step={0.05}
-                value={cloudOpexMultiplier}
-                onChange={(e) => setCloudOpexMultiplier(Number(e.target.value))}
-                aria-label="Cloud OpEx multiplier slider"
-              />
-            </div>
-          </label>
-        </div>
-        <div className="sync-controls-row" role="group" aria-label="Simulator sync controls">
-          <label className="sync-toggle">
-            <input
-              type="checkbox"
-              checked={syncSimulatorSavings}
-              onChange={(e) => setSyncSimulatorSavings(e.target.checked)}
-            />
-            <span>Auto-sync downtime and productivity savings to ROI assumptions</span>
-          </label>
-          <label className="sync-toggle">
-            <input
-              type="checkbox"
-              checked={syncSuggestedOpexToBudget}
-              onChange={(e) => setSyncSuggestedOpexToBudget(e.target.checked)}
-            />
-            <span>Auto-sync suggested cloud OpEx to yearly OpEx plan</span>
-          </label>
-        </div>
         <div className="sim-suggestions-grid">
           <div className="sim-suggestion-row">
             <div className="sim-suggestion-meta">
               <span className="sim-suggestion-label">Annual cloud OpEx</span>
               <span className="sim-suggestion-source">
-                P6 · Redundancy {redundancy} · {multiRegion ? 'Multi-Region' : 'Single Region'} · {cloudOpexMultiplier.toFixed(2)}x scenario
+                P6 · Redundancy {redundancy} · {multiRegion ? 'Multi-Region' : 'Single Region'}
               </span>
             </div>
-            <span className="sim-suggestion-value">{formatCurrency(suggestedOpexPerYearAdjusted)}</span>
+            <span className="sim-suggestion-value">{formatCurrency(suggestedOpexPerYear)}</span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setOpexByYear(YEARS.map(() => String(suggestedOpexPerYear)))}
+            >
+              Apply to all years
+            </button>
           </div>
           <div className="sim-suggestion-row">
             <div className="sim-suggestion-meta">
               <span className="sim-suggestion-label">Annual downtime savings</span>
               <span className="sim-suggestion-source">
-                P6 · {p6Uptime.toFixed(3)}% uptime vs 95% baseline · {formatCurrency(incidentCostPerHour)}/hr incident cost
+                P6 · {p6Uptime.toFixed(3)}% uptime vs 95% baseline · $20,000/hr incident cost
               </span>
             </div>
             <span className="sim-suggestion-value">{formatCurrency(suggestedDowntimeSavings)}</span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setAnnualDowntimeSavings(String(suggestedDowntimeSavings))}
+            >
+              Apply
+            </button>
           </div>
           <div className="sim-suggestion-row">
             <div className="sim-suggestion-meta">
               <span className="sim-suggestion-label">Annual productivity savings</span>
               <span className="sim-suggestion-source">
-                P5 · {automationPct}% automation · failure rate {p5FailureRate}% vs 25% baseline · {formatCurrency(savingsPerAvoidedFailure)} per avoided failure
+                P5 · {automationPct}% automation · failure rate {p5FailureRate}% vs 25% baseline
               </span>
             </div>
             <span className="sim-suggestion-value">{formatCurrency(suggestedProductivitySavings)}</span>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setAnnualProductivitySavings(String(suggestedProductivitySavings))}
+            >
+              Apply
+            </button>
           </div>
         </div>
       </section>
@@ -3427,69 +2909,33 @@ function App() {
         <div className="assumptions-grid">
           <label className="field-label">
             <span>Annual downtime savings ($)</span>
-            <div className="field-slider-pair">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="field field-money"
-                value={annualDowntimeSavings}
-                onChange={(e) => handleAnnualDowntimeChange(e.target.value)}
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={budgetSlider.moneyMin}
-                max={budgetSlider.moneyMax}
-                step={budgetSlider.moneyStep}
-                value={clamp(parseMoney(annualDowntimeSavings), budgetSlider.moneyMin, budgetSlider.moneyMax)}
-                onChange={(e) => handleAnnualDowntimeChange(String(clamp(Number(e.target.value), budgetSlider.moneyMin, budgetSlider.moneyMax)))}
-                aria-label="Annual downtime savings slider"
-              />
-            </div>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="field field-money"
+              value={annualDowntimeSavings}
+              onChange={(e) => setAnnualDowntimeSavings(e.target.value)}
+            />
           </label>
           <label className="field-label">
             <span>Annual productivity savings ($)</span>
-            <div className="field-slider-pair">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="field field-money"
-                value={annualProductivitySavings}
-                onChange={(e) => handleAnnualProductivityChange(e.target.value)}
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={budgetSlider.moneyMin}
-                max={budgetSlider.moneyMax}
-                step={budgetSlider.moneyStep}
-                value={clamp(parseMoney(annualProductivitySavings), budgetSlider.moneyMin, budgetSlider.moneyMax)}
-                onChange={(e) => handleAnnualProductivityChange(String(clamp(Number(e.target.value), budgetSlider.moneyMin, budgetSlider.moneyMax)))}
-                aria-label="Annual productivity savings slider"
-              />
-            </div>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="field field-money"
+              value={annualProductivitySavings}
+              onChange={(e) => setAnnualProductivitySavings(e.target.value)}
+            />
           </label>
           <label className="field-label">
             <span>Annual data center cost avoided ($)</span>
-            <div className="field-slider-pair">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="field field-money"
-                value={annualDataCenterAvoided}
-                onChange={(e) => setAnnualDataCenterAvoided(e.target.value)}
-              />
-              <input
-                type="range"
-                className="field-slider"
-                min={budgetSlider.moneyMin}
-                max={budgetSlider.moneyMax}
-                step={budgetSlider.moneyStep}
-                value={clamp(parseMoney(annualDataCenterAvoided), budgetSlider.moneyMin, budgetSlider.moneyMax)}
-                onChange={(e) => handleMoneySliderChange(setAnnualDataCenterAvoided, e.target.value)}
-                aria-label="Annual data center cost avoided slider"
-              />
-            </div>
+            <input
+              type="text"
+              inputMode="decimal"
+              className="field field-money"
+              value={annualDataCenterAvoided}
+              onChange={(e) => setAnnualDataCenterAvoided(e.target.value)}
+            />
           </label>
         </div>
       </section>
@@ -3618,29 +3064,7 @@ function App() {
           aria-hidden={!isRoi}
           style={{ display: isRoi ? 'block' : 'none' }}
         >
-          <RoiValuePanel
-            rows={rows}
-            annualDowntimeSavings={annualDowntimeSavings}
-            annualProductivitySavings={annualProductivitySavings}
-            annualDataCenterAvoided={annualDataCenterAvoided}
-            annualBenefits={annualBenefits}
-            totalCost5={totalCost5}
-            totalBenefits5={totalBenefits5}
-            roiPct={roiPct}
-            breakevenPoint={breakevenPoint}
-            automationPct={automationPct}
-            teamSize={teamSize}
-            p5FailureRate={p5FailureRate}
-            p5DeployFreq={p5DeployFreq}
-            redundancy={redundancy}
-            multiRegion={multiRegion}
-            p6Uptime={p6Uptime}
-            suggestedOpexPerYearAdjusted={suggestedOpexPerYearAdjusted}
-            suggestedDowntimeSavings={suggestedDowntimeSavings}
-            suggestedProductivitySavings={suggestedProductivitySavings}
-            syncSimulatorSavings={syncSimulatorSavings}
-            syncSuggestedOpexToBudget={syncSuggestedOpexToBudget}
-          />
+          <RoiValuePanel />
         </div>
 
         <div
@@ -3699,43 +3123,15 @@ function App() {
         </div>
 
         <div
-          className="governance-route"
-          id="governance-route"
-          hidden={!isGovernance}
-          aria-hidden={!isGovernance}
-          style={{ display: isGovernance ? 'block' : 'none' }}
+          className="panels-route"
+          id="panels-route"
+          hidden={!isPanels}
+          aria-hidden={!isPanels}
+          style={{ display: isPanels ? 'block' : 'none' }}
         >
           <Panel4Governance slaUptime={p6Uptime} />
-        </div>
-
-        <div
-          className="cicd-route"
-          id="cicd-route"
-          hidden={!isCiCd}
-          aria-hidden={!isCiCd}
-          style={{ display: isCiCd ? 'block' : 'none' }}
-        >
-          <Panel5CiCd
-            automationPct={automationPct}
-            setAutomationPct={setAutomationPct}
-            teamSize={teamSize}
-            setTeamSize={setTeamSize}
-          />
-        </div>
-
-        <div
-          className="uptime-route"
-          id="uptime-route"
-          hidden={!isUptime}
-          aria-hidden={!isUptime}
-          style={{ display: isUptime ? 'block' : 'none' }}
-        >
-          <Panel6Uptime
-            redundancy={redundancy}
-            setRedundancy={setRedundancy}
-            multiRegion={multiRegion}
-            setMultiRegion={setMultiRegion}
-          />
+          <Panel5CiCd automationPct={automationPct} setAutomationPct={setAutomationPct} teamSize={teamSize} setTeamSize={setTeamSize} />
+          <Panel6Uptime redundancy={redundancy} setRedundancy={setRedundancy} multiRegion={multiRegion} setMultiRegion={setMultiRegion} />
         </div>
         </div>
       </div>
