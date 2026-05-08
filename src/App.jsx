@@ -147,22 +147,13 @@ const HORIZON_YEARS = 5
 function classifyP7RoiYearZone(points, year) {
   const i = year - 1
   const pt = points[i]
-  // #region agent log
-  fetch('http://127.0.0.1:7428/ingest/4dc69b6e-6484-486d-bf3f-6ac3ac44fd9d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28975b'},body:JSON.stringify({sessionId:'28975b',location:'App.jsx:classifyP7RoiYearZone',message:'enter',data:{year,i,ptsLen:points.length,roiY1:points[0]?.roi,roiThis:pt?.roi,idxIMinus2:i-2,negIndexSample:points[i-2]?.roi},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
   if (!pt) return 'under'
   if (pt.roi < 0) return 'under'
   if (year === 1) return 'optimal'
   const deltaCurr = pt.roi - points[i - 1].roi
-  // #region agent log
-  fetch('http://127.0.0.1:7428/ingest/4dc69b6e-6484-486d-bf3f-6ac3ac44fd9d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28975b'},body:JSON.stringify({sessionId:'28975b',location:'App.jsx:classifyP7RoiYearZone',message:'before deltaPrev',data:{year,i,willUsePointsAtIMinus2:i>=2,iMinus2:i-2},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
   // YoY vs prior YoY gain; year 2 compares to Δ from implicit roi(0)=0 (not points[-1]).
   const deltaPrev =
     i >= 2 ? points[i - 1].roi - points[i - 2].roi : points[0].roi - 0
-  // #region agent log
-  fetch('http://127.0.0.1:7428/ingest/4dc69b6e-6484-486d-bf3f-6ac3ac44fd9d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'28975b'},body:JSON.stringify({sessionId:'28975b',location:'App.jsx:classifyP7RoiYearZone',message:'deltaPrev ok',data:{year,i,deltaCurr,deltaPrev,runId:'post-fix'},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-  // #endregion
   return deltaCurr > deltaPrev ? 'optimal' : 'diminishing'
 }
 
