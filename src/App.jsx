@@ -1284,182 +1284,6 @@ function buildBassDiffusionCurve(marketingSpend, networkEffect, marketType) {
   return { points, p, q, marketType: marketType ?? 'B2C' }
 }
 
-/** Cumulative ROI curve knots; t = fractional years elapsed (0 start, 1–5 year-ends). */
-function buildRoiCurve(rows, annualBenefits) {
-  const points = [{ t: 0, cumulativeCost: 0, cumulativeBenefit: 0 }]
-  for (const r of rows) {
-    points.push({
-      t: r.year,
-      cumulativeCost: r.cumulativeCost,
-      cumulativeBenefit: annualBenefits * r.year,
-    })
-  }
-  return points
-}
-
-/**
- * First recovery break-even along piecewise-linear curve (start at t=0, then year-end knots).
- * Chooses the earliest crossing where cumulative benefits recover from underwater (gap < 0) to parity.
- */
-function findRoiBreakeven(curvePoints) {
-  const eps = 1e-6
-  let earliest = null
-  for (let i = 0; i < curvePoints.length - 1; i++) {
-    const p0 = curvePoints[i]
-    const p1 = curvePoints[i + 1]
-    const g0 = p0.cumulativeBenefit - p0.cumulativeCost
-    const g1 = p1.cumulativeBenefit - p1.cumulativeCost
-    const denom = g1 - g0
-    if (Math.abs(denom) < 1e-12 || g1 <= g0 + eps) continue
-    const u = -g0 / denom
-    if (u <= eps || u > 1 + eps) continue
-    if (!(g0 < -eps && g1 >= -eps)) continue
-    const tStar = p0.t + Math.min(1, Math.max(0, u)) * (p1.t - p0.t)
-    const amt =
-      p0.cumulativeBenefit +
-      Math.min(1, Math.max(0, u)) *
-        (p1.cumulativeBenefit - p0.cumulativeBenefit)
-    if (!earliest || tStar < earliest.tStar - eps) earliest = { tStar, amount: amt }
-  }
-  return earliest
-}
-
-function RoiBreakevenChart({ curvePoints, breakeven }) {
-  const w = 640
-  const h = 320
-  const padL = 56
-  const padR = 28
-  const padT = 28
-  const padB = 54
-  const innerW = w - padL - padR
-  const innerH = h - padT - padB
-  const axisTMin = 0
-  const axisTMax = 5
-
-  const maxValue = curvePoints.reduce(
-    (m, p) =>
-      Math.max(m, p.cumulativeCost, p.cumulativeBenefit, breakeven?.amount ?? 0),
-    1,
-  )
-  const maxY = maxValue <= 0 ? 1 : maxValue * 1.08
-
-  function xAt(tVal) {
-    const u = (tVal - axisTMin) / (axisTMax - axisTMin)
-    return padL + u * innerW
-  }
-  function yAt(vVal) {
-    return padT + innerH * (1 - Math.min(Math.max(vVal / maxY, 0), 1))
-  }
-
-  const pathCost =
-    curvePoints.map((p) => `${xAt(p.t)},${yAt(p.cumulativeCost)}`).join(' ')
-  const pathBen =
-    curvePoints.map((p) => `${xAt(p.t)},${yAt(p.cumulativeBenefit)}`).join(' ')
-
-  const crossX = breakeven ? xAt(breakeven.tStar) : null
-  const crossY = breakeven ? yAt(breakeven.amount) : null
-
-  return (
-    <svg
-      className="roi-breakeven-chart"
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="xMidYMid meet"
-      role="img"
-      aria-label="ROI break-even: cumulative cost versus cumulative benefit over time"
-    >
-      <title>Cumulative migration cost versus cumulative benefits</title>
-      {[0, 0.25, 0.5, 0.75, 1].map((frac) => {
-        const vk = frac * maxY
-        const y = padT + innerH * (1 - frac)
-        return (
-          <g key={frac}>
-            <line
-              x1={padL}
-              y1={y}
-              x2={padL + innerW}
-              y2={y}
-              className="chart-grid-line"
-            />
-            <text
-              x={padL - 8}
-              y={y + 4}
-              textAnchor="end"
-              className="chart-axis-label"
-            >
-              {vk >= 1_000_000
-                ? `${(vk / 1_000_000).toFixed(1)}M`
-                : vk >= 1000
-                  ? `${Math.round(vk / 1000)}k`
-                  : Math.round(vk)}
-            </text>
-          </g>
-        )
-      })}
-      {[0, 1, 2, 3, 4, 5].map((tick) => {
-        const xv = xAt(tick)
-        return (
-          <g key={`tx-${tick}`}>
-            <line
-              x1={xv}
-              y1={padT + innerH}
-              x2={xv}
-              y2={padT + innerH + 6}
-              className="chart-axis-tick-line"
-            />
-            <text
-              x={xv}
-              y={h - padB + 34}
-              textAnchor="middle"
-              className="chart-axis-label chart-axis-year"
-            >
-              {tick === 0 ? 'Start' : `Year ${tick}`}
-            </text>
-          </g>
-        )
-      })}
-      <text
-        x={padL + innerW / 2}
-        y={18}
-        textAnchor="middle"
-        className="chart-title"
-      >
-        Cumulative dollars (USD)
-      </text>
-      <polyline
-        className="roi-line roi-line-benefit"
-        points={pathBen}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polyline
-        className="roi-line roi-line-cost"
-        points={pathCost}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {breakeven && crossX != null && crossY != null ? (
-        <g aria-hidden="true">
-          <line
-            x1={crossX}
-            y1={crossY}
-            x2={crossX}
-            y2={padT + innerH}
-            className="breakeven-marker-line"
-          />
-          <circle
-            cx={crossX}
-            cy={crossY}
-            r={5}
-            className="breakeven-marker-dot"
-          />
-        </g>
-      ) : null}
-    </svg>
-  )
-}
-
 /**
  * Panel 1 — Cost by year: per fiscal year, baseline on-prem bar + migration total
  * as a stacked bar (CAPEX bottom, combined OPEX top).
@@ -1599,6 +1423,47 @@ function Panel1CostByYearChart({ rows, baselineOnPremByYear }) {
   )
 }
 
+const LANDING_BASELINE_METRICS = [
+  {
+    metric: 'Workforce',
+    value: '1,000',
+    description:
+      'Total employees (80 IT staff, 120 Customer Service agents)',
+  },
+  {
+    metric: 'Customer Base',
+    value: '350,000',
+    description:
+      'Unique customers holding 500,000 active policies',
+  },
+  {
+    metric: 'Annual Revenue',
+    value: '$250,000,000',
+    description: 'Gross written premium revenue',
+  },
+  {
+    metric: 'Current IT Budget',
+    value: '$13,750,000',
+    description: '5.5% of revenue (industry benchmark)',
+  },
+  {
+    metric: 'Customer Contacts',
+    value: '1,800,000',
+    description: 'Annual inbound inquiries (~5.1 per customer)',
+  },
+  {
+    metric: 'Infrastructure Age',
+    value: '6 Years',
+    description:
+      'Average age of on-premise hardware (due for refresh)',
+  },
+  {
+    metric: 'System Uptime',
+    value: '99.2%',
+    description: 'Current SLA (Target: 99.95% post-migration)',
+  },
+]
+
 function LandingHome({ visible }) {
   return (
     <div
@@ -1612,7 +1477,8 @@ function LandingHome({ visible }) {
           <p className="landing-welcome">Welcome</p>
           <h2 className="landing-title-dash">Technology Benefit Simulator</h2>
           <p className="landing-tagline">
-            Model migration spend, recurring benefits, and break-even timing.
+            Model cloud migration paths, recurring benefits, total cost of
+            ownership, and ROI so leadership can compare scenarios with clarity.
           </p>
         </div>
         <p className="landing-hint-soft">
@@ -1620,6 +1486,64 @@ function LandingHome({ visible }) {
           you&apos;re ready to work the numbers.
         </p>
       </div>
+
+      <section
+        className="panel-card landing-overview-section"
+        aria-labelledby="landing-purpose-heading"
+      >
+        <h2 id="landing-purpose-heading" className="card-heading">
+          Project purpose
+        </h2>
+        <p className="card-lead landing-purpose-lead">
+          The objective of this programme is to{' '}
+          <strong>
+            migrate our core on-premise infrastructure to the cloud
+          </strong>{' '}
+          and to{' '}
+          <strong>
+            implement an enterprise-wide AI customer service platform
+          </strong>
+          . This estimator turns model inputs into financial and operational
+          views so the{' '}
+          <strong>C-suite</strong> can weigh trade-offs and move forward with
+          evidence-backed decisions.
+        </p>
+      </section>
+
+      <section
+        className="panel-card landing-overview-section"
+        aria-labelledby="landing-baseline-heading"
+      >
+        <h2 id="landing-baseline-heading" className="card-heading">
+          Baseline organizational metrics
+        </h2>
+        <p className="card-lead">
+          The financial model is built upon the following baseline metrics for
+          our organization:
+        </p>
+        <div className="table-scroll">
+          <table className="data-table data-table-landing-baseline">
+            <thead>
+              <tr>
+                <th scope="col">Metric</th>
+                <th scope="col" className="num">
+                  Value
+                </th>
+                <th scope="col">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LANDING_BASELINE_METRICS.map((row) => (
+                <tr key={row.metric}>
+                  <th scope="row">{row.metric}</th>
+                  <td className="num num-strong">{row.value}</td>
+                  <td>{row.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   )
 }
@@ -3329,201 +3253,1136 @@ function Panel9Diffusion({
   )
 }
 
-function RoiValuePanel({
-  redundancy,
-  multiRegion,
-  p6Uptime,
-  suggestedOpexPerYear,
-  suggestedDowntimeSavings,
-  suggestedProductivitySavings,
-  automationPct,
-  p5FailureRate,
-  setOpexByYear,
-  setAnnualDowntimeSavings,
-  setAnnualProductivitySavings,
-  annualDowntimeSavings,
-  annualProductivitySavings,
-  annualDataCenterAvoided,
-  setAnnualDataCenterAvoided,
-  totalOpex5,
-  totalCapex5,
-  totalCost5,
-  totalBenefits5,
-  roiPct,
-  roiCurve,
-  breakevenPoint,
-  breakevenExplanation,
-}) {
+/** Table 4 — Tangible Returns (v2 Corrected). `y` = year amount; `null` = — */
+const PANEL2_TABLE4_TANGIBLE_ROWS = [
+  { t: 'g', label: 'Productivity Gains' },
+  {
+    t: 'l',
+    line: 'Workforce Productivity Value (12% efficiency gain × 30% captured, 1,000 FTE × $85K avg)',
+    stabilized: 3_060_000,
+    y1: 612_000,
+    y2: 1_683_000,
+    y3: 3_060_000,
+    y4: 3_304_800,
+    y5: 3_427_200,
+    fiveYr: 12_087_000,
+  },
+  {
+    t: 'l',
+    line: 'Faster Software Deployment — DevOps Velocity (2× release cadence)',
+    stabilized: 300_000,
+    y1: 60_000,
+    y2: 165_000,
+    y3: 300_000,
+    y4: 324_000,
+    y5: 336_000,
+    fiveYr: 1_185_000,
+  },
+  {
+    t: 'l',
+    line: 'Reduced Downtime Value (6.57 fewer hrs/yr × $5,600/min × 60 min)',
+    stabilized: 2_207_520,
+    y1: 441_504,
+    y2: 1_214_136,
+    y3: 2_207_520,
+    y4: 2_384_122,
+    y5: 2_472_422,
+    fiveYr: 8_719_704,
+  },
+  { t: 'g', label: 'Revenue Enablement' },
+  {
+    t: 'l',
+    line: 'New Digital Channel Revenue (Digital-First Policies)',
+    stabilized: 2_500_000,
+    y1: 250_000,
+    y2: 1_000_000,
+    y3: 2_500_000,
+    y4: 2_750_000,
+    y5: 3_000_000,
+    fiveYr: 9_500_000,
+  },
+  {
+    t: 'l',
+    line: 'Faster Claims Processing — Customer Retention Value',
+    stabilized: 1_000_000,
+    y1: 100_000,
+    y2: 400_000,
+    y3: 1_000_000,
+    y4: 1_100_000,
+    y5: 1_200_000,
+    fiveYr: 3_800_000,
+  },
+  {
+    t: 'l',
+    line: 'AI-Driven Cross-Sell & Upsell Revenue',
+    stabilized: 750_000,
+    y1: 75_000,
+    y2: 300_000,
+    y3: 750_000,
+    y4: 825_000,
+    y5: 900_000,
+    fiveYr: 2_850_000,
+  },
+  {
+    t: 'total',
+    line: 'TOTAL TANGIBLE RETURNS',
+    y1: 1_538_504,
+    y2: 4_762_136,
+    y3: 9_817_520,
+    y4: 10_687_922,
+    y5: 11_335_622,
+    fiveYr: 38_141_704,
+  },
+]
+
+/** Table 5 — Intangible Returns (v2 Corrected). */
+const PANEL2_TABLE5_INTANGIBLE_ROWS = [
+  { t: 'g', label: 'Brand & Reputation' },
+  {
+    t: 'l',
+    line: 'NPS Improvement → Revenue Uplift (2% × $250M × 40% confidence weight)',
+    method: 'Incremental Earnings',
+    y1: 500_000,
+    y2: 1_200_000,
+    y3: 2_000_000,
+    y4: 2_200_000,
+    y5: 2_400_000,
+    fiveYr: 8_300_000,
+  },
+  { t: 'g', label: 'Regulatory Trust' },
+  {
+    t: 'l',
+    line: 'External Audit Fee Reduction (30% × $400K annual audit cost)',
+    method: 'Cost Avoidance',
+    y1: 60_000,
+    y2: 120_000,
+    y3: 120_000,
+    y4: 120_000,
+    y5: 120_000,
+    fiveYr: 540_000,
+  },
+  {
+    t: 'l',
+    line: 'Faster Regulatory Approval → Earlier Product Revenue (2 products × $500K × 2 months)',
+    method: 'Cost Avoidance',
+    y1: null,
+    y2: 400_000,
+    y3: 2_000_000,
+    y4: 2_000_000,
+    y5: 2_000_000,
+    fiveYr: 6_400_000,
+  },
+  {
+    t: 'l',
+    line: 'Reduced Enforcement Action Probability (15% → 5% × $3M avg penalty)',
+    method: 'Cost Avoidance',
+    y1: 140_000,
+    y2: 280_000,
+    y3: 300_000,
+    y4: 380_000,
+    y5: 480_000,
+    fiveYr: 1_580_000,
+  },
+  { t: 'g', label: 'Talent Attraction & Retention' },
+  {
+    t: 'l',
+    line: 'IT Staff Turnover Reduction (18% → 10% × 80 FTE × 1.5× replacement cost)',
+    method: 'Cost Avoidance',
+    y1: 200_000,
+    y2: 700_000,
+    y3: 1_152_000,
+    y4: 1_200_000,
+    y5: 1_248_000,
+    fiveYr: 4_500_000,
+  },
+  {
+    t: 'l',
+    line: 'Reduced Contractor & Agency Reliance',
+    method: 'Cost Avoidance',
+    y1: null,
+    y2: null,
+    y3: 398_000,
+    y4: 400_000,
+    y5: 402_000,
+    fiveYr: 1_200_000,
+  },
+  { t: 'g', label: 'Innovation Velocity' },
+  {
+    t: 'l',
+    line: 'Earlier Product Launch Revenue (3-month acceleration × 2 products/yr × $2M revenue)',
+    method: 'Incremental Earnings',
+    y1: null,
+    y2: 300_000,
+    y3: 1_000_000,
+    y4: 1_200_000,
+    y5: 1_400_000,
+    fiveYr: 3_900_000,
+  },
+  {
+    t: 'l',
+    line: '20% More Features Shipped → Competitive Retention Value',
+    method: 'Incremental Earnings',
+    y1: null,
+    y2: null,
+    y3: 500_000,
+    y4: 600_000,
+    y5: 700_000,
+    fiveYr: 1_800_000,
+  },
+  { t: 'g', label: 'Data-Driven Decision Making' },
+  {
+    t: 'l',
+    line: 'Loss Ratio Improvement via AI Underwriting (1.5 pts × $250M GWP)',
+    method: 'Incremental Earnings',
+    y1: null,
+    y2: 375_000,
+    y3: 3_750_000,
+    y4: 3_900_000,
+    y5: 4_062_500,
+    fiveYr: 12_087_500,
+  },
+  {
+    t: 'l',
+    line: 'AI Fraud Detection — Claims Leakage Reduction (0.5% of claims base)',
+    method: 'Incremental Earnings',
+    y1: null,
+    y2: 125_000,
+    y3: 850_000,
+    y4: 900_000,
+    y5: 937_500,
+    fiveYr: 2_812_500,
+  },
+  { t: 'g', label: 'Business Resilience' },
+  {
+    t: 'l',
+    line: 'Ransomware Resilience (3% probability × $4M recovery cost avoided)',
+    method: 'Cost Avoidance',
+    y1: null,
+    y2: null,
+    y3: 120_000,
+    y4: 120_000,
+    y5: 120_000,
+    fiveYr: 360_000,
+  },
+  {
+    t: 'l',
+    line: 'DR Test Cost Reduction — Automated Failover vs Manual Runbook',
+    method: 'Cost Avoidance',
+    y1: null,
+    y2: null,
+    y3: 182_480,
+    y4: 182_480,
+    y5: 182_480,
+    fiveYr: 547_440,
+  },
+  { t: 'g', label: 'Customer Experience' },
+  {
+    t: 'l',
+    line: 'Churn Reduction Proxy (1% churn reduction × 350K customers × $500 avg premium × 0.7%)',
+    method: 'Proxy Method',
+    y1: null,
+    y2: 400_000,
+    y3: 1_225_000,
+    y4: 1_500_000,
+    y5: 1_700_000,
+    fiveYr: 4_825_000,
+  },
+  {
+    t: 'l',
+    line: '24/7 Availability — New Customer Acquisition (28K reachable × $500 × 10% conversion)',
+    method: 'Proxy Method',
+    y1: 200_000,
+    y2: 400_000,
+    y3: 1_400_000,
+    y4: 1_500_000,
+    y5: 1_500_000,
+    fiveYr: 5_000_000,
+  },
+  { t: 'g', label: 'ESG & Sustainability' },
+  {
+    t: 'l',
+    line: 'ESG Premium Pricing Power (3% of $50M commercial lines × 20% confidence)',
+    method: 'Surveys & Baseline',
+    y1: null,
+    y2: 100_000,
+    y3: 300_000,
+    y4: 400_000,
+    y5: 500_000,
+    fiveYr: 1_300_000,
+  },
+  {
+    t: 'total',
+    line: 'TOTAL INTANGIBLE RETURNS',
+    y1: 1_100_000,
+    y2: 4_400_000,
+    y3: 15_297_480,
+    y4: 16_602_480,
+    y5: 17_752_480,
+    fiveYr: 55_152_440,
+  },
+]
+
+/** Table 6 excerpt — tangible + intangible only; totals sum the two rows. */
+const PANEL2_TABLE6_TI_SUMMARY_ROWS = [
+  {
+    t: 'd',
+    detailKey: 'tangible',
+    line: 'Tangible Returns (Revenue & Productivity)',
+    y1: 1_538_504,
+    y2: 4_762_136,
+    y3: 9_817_520,
+    y4: 10_687_922,
+    y5: 11_335_622,
+    fiveYr: 38_141_704,
+  },
+  {
+    t: 'd',
+    detailKey: 'intangible',
+    line: 'Intangible Returns (Quantified)',
+    y1: 1_100_000,
+    y2: 4_400_000,
+    y3: 15_297_480,
+    y4: 16_602_480,
+    y5: 17_752_480,
+    fiveYr: 55_152_440,
+  },
+  {
+    t: 'total',
+    line: 'Total returns',
+    y1: 2_638_504,
+    y2: 9_162_136,
+    y3: 25_115_000,
+    y4: 27_290_402,
+    y5: 29_088_102,
+    fiveYr: 93_294_144,
+  },
+]
+
+function formatRoiReturnsCell(v) {
+  if (v == null || v === '') return '—'
+  return formatCurrency(v)
+}
+
+/** Yearly totals from Panel 2 Tables 4 & 5 (TOTAL … RETURNS rows). */
+function panel2TangibleReturnsByYear() {
+  const row = PANEL2_TABLE4_TANGIBLE_ROWS.find((r) => r.t === 'total')
+  return row
+    ? [row.y1, row.y2, row.y3, row.y4, row.y5].map((v) => Math.round(v ?? 0))
+    : YEARS.map(() => 0)
+}
+
+function panel2IntangibleReturnsByYear() {
+  const row = PANEL2_TABLE5_INTANGIBLE_ROWS.find((r) => r.t === 'total')
+  return row
+    ? [row.y1, row.y2, row.y3, row.y4, row.y5].map((v) =>
+        Math.round(v ?? 0),
+      )
+    : YEARS.map(() => 0)
+}
+
+/** B = baseline − (on-prem + cloud OPEX) + tangible + intangible; C = B − CAPEX */
+function buildPanel2CumulativeRoiSeries(
+  capexByYear,
+  baselineOnPremByYear,
+  onPremiseOpexByYear,
+  cloudAiOpexByYear,
+  tangibleReturnsByYear,
+  intangibleReturnsByYear,
+) {
+  const A = YEARS.map((_, i) => Math.round(capexByYear[i] ?? 0))
+  const B = YEARS.map((_, i) => {
+    const base = baselineOnPremByYear[i] ?? 0
+    const onPrem = onPremiseOpexByYear[i] ?? 0
+    const cloud = cloudAiOpexByYear[i] ?? 0
+    const tang = tangibleReturnsByYear[i] ?? 0
+    const intang = intangibleReturnsByYear[i] ?? 0
+    return Math.round(base - (onPrem + cloud) + tang + intang)
+  })
+  const net = YEARS.map((_, i) => B[i] - A[i])
+  const cumulCapex = []
+  const cumulNet = []
+  const cumulativeRoiFraction = []
+  let runCapex = 0
+  let runNet = 0
+  YEARS.forEach((_, i) => {
+    runCapex += A[i]
+    cumulCapex.push(runCapex)
+    runNet += net[i]
+    cumulNet.push(runNet)
+    cumulativeRoiFraction.push(
+      runCapex !== 0 && Number.isFinite(runNet / runCapex)
+        ? runNet / runCapex
+        : null,
+    )
+  })
+  const totalCapex = A.reduce((s, v) => s + v, 0)
+  const totalB = B.reduce((s, v) => s + v, 0)
+  const totalNet = net.reduce((s, v) => s + v, 0)
+  const finalCumulCapex = cumulCapex[YEARS.length - 1] ?? 0
+  const finalCumulNet = cumulNet[YEARS.length - 1] ?? 0
+  const fiveYrRoiFrac =
+    finalCumulCapex !== 0 && Number.isFinite(finalCumulNet / finalCumulCapex)
+      ? finalCumulNet / finalCumulCapex
+      : null
+
+  return {
+    capex: A,
+    cumulCapex,
+    totalReturns: B,
+    netCashFlow: net,
+    cumulNet,
+    cumulativeRoiFraction,
+    totals: {
+      capex: totalCapex,
+      cumulCapex: finalCumulCapex,
+      totalReturns: totalB,
+      netCashFlow: totalNet,
+      cumulNet: finalCumulNet,
+      cumulativeRoiFraction: fiveYrRoiFrac,
+    },
+  }
+}
+
+function formatPanel2CumulativeRoiRatio(fraction) {
+  if (fraction == null || !Number.isFinite(fraction)) return '—'
+  return `${(fraction * 100).toFixed(1)}%`
+}
+
+/** Panel 2 — dual axis: cumulative ROI % (left) vs cumul. net cash flow bars (right scale = $ million). */
+function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
+  const w = 700
+  const h = 372
+  const padL = 88
+  const padR = 92
+  const padT = 52
+  const padB = 56
+  const innerW = w - padL - padR
+  const innerH = h - padT - padB
+
+  const roiPctSeries = YEARS.map((_, i) => {
+    const f = cumulativeRoiTable.cumulativeRoiFraction[i]
+    return f != null && Number.isFinite(f) ? f * 100 : null
+  })
+  const cumulNetM = YEARS.map(
+    (_, i) => (cumulativeRoiTable.cumulNet[i] ?? 0) / 1_000_000,
+  )
+
+  const roiFinite = roiPctSeries.filter((v) => v != null && Number.isFinite(v))
+  let leftMin =
+    roiFinite.length > 0 ? Math.min(0, ...roiFinite) : -20
+  let leftMax = roiFinite.length > 0 ? Math.max(...roiFinite, 0) : 100
+  if (leftMin === leftMax) {
+    leftMin -= 1
+    leftMax += 1
+  }
+  const leftPadAmt = Math.max(Math.abs(leftMax - leftMin) * 0.08, 0.5)
+  leftMin -= leftPadAmt
+  leftMax += leftPadAmt
+
+  const minM = Math.min(0, ...cumulNetM)
+  const maxM = Math.max(...cumulNetM, 0)
+  const mSpan = Math.max(
+    maxM - minM,
+    Math.abs(minM || maxM) * 0.05,
+    1e-3,
+  )
+  let rightMin = minM - mSpan * 0.08
+  let rightMax = maxM + mSpan * 0.08
+  if (rightMin === rightMax) {
+    rightMin -= 0.5
+    rightMax += 0.5
+  }
+
+  function formatPctTick(pct) {
+    const a = Math.abs(pct)
+    return `${(a >= 100 || a === 0 ? pct.toFixed(0) : pct.toFixed(1))}%`
+  }
+
+  function xCenter(i) {
+    return padL + ((i + 0.5) / YEARS.length) * innerW
+  }
+  function yLeft(pct) {
+    return padT + innerH * (1 - (pct - leftMin) / (leftMax - leftMin))
+  }
+  function yRight(mMillions) {
+    return padT + innerH * (1 - (mMillions - rightMin) / (rightMax - rightMin))
+  }
+
+  const slotW = innerW / YEARS.length
+  const barW = Math.max(14, Math.min(slotW * 0.42, 48))
+  const yZeroBar = Math.min(padT + innerH, Math.max(padT, yRight(0)))
+
+  const lineCoords = YEARS.flatMap((year, i) => {
+    const pct = roiPctSeries[i]
+    if (pct == null || !Number.isFinite(pct)) return []
+    return [{ year, x: xCenter(i), y: yLeft(pct) }]
+  })
+
+  const linePointsStr = lineCoords.map((p) => `${p.x},${p.y}`).join(' ')
+  const gridFrac = [0, 0.25, 0.5, 0.75, 1]
+  const tickLabelOffsetL = 14
+  const tickLabelOffsetR = 14
+
+  return (
+    <svg
+      className="cost-chart panel2-roi-dual-chart"
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="ROI chart: cumulative ROI percent and cumulative net cash flow by year"
+    >
+      <title>Cumulative ROI and cumulative net cash flow</title>
+      <text
+        x={padL + innerW / 2}
+        y={20}
+        textAnchor="middle"
+        className="chart-title"
+      >
+        Metrics by fiscal year-end
+      </text>
+      <text
+        x={12}
+        y={40}
+        textAnchor="start"
+        className="chart-axis-unit chart-axis-unit-left"
+      >
+        % (left axis)
+      </text>
+      <text
+        x={w - 12}
+        y={40}
+        textAnchor="end"
+        className="chart-axis-unit chart-axis-unit-right"
+      >
+        Million USD (right axis)
+      </text>
+      {gridFrac.map((t) => {
+        const y = padT + innerH * (1 - t)
+        const pctTick = leftMin + t * (leftMax - leftMin)
+        const mTick = rightMin + t * (rightMax - rightMin)
+        return (
+          <g key={t}>
+            <line
+              x1={padL}
+              y1={y}
+              x2={padL + innerW}
+              y2={y}
+              className="chart-grid-line"
+            />
+            <text
+              x={padL - tickLabelOffsetL}
+              y={y + 4}
+              textAnchor="end"
+              className="chart-axis-label chart-axis-label-dual chart-axis-tick-left"
+            >
+              {formatPctTick(pctTick)}
+            </text>
+            <text
+              x={padL + innerW + tickLabelOffsetR}
+              y={y + 4}
+              textAnchor="start"
+              className="chart-axis-label chart-axis-label-dual chart-axis-tick-right"
+            >
+              {mTick >= 10 || mTick <= -10
+                ? `${mTick.toFixed(1)}`
+                : mTick.toFixed(2)}{' '}
+              M
+            </text>
+          </g>
+        )
+      })}
+      {YEARS.map((year, i) => (
+        <g key={year}>
+          <line
+            x1={xCenter(i)}
+            y1={padT + innerH}
+            x2={xCenter(i)}
+            y2={padT + innerH + 6}
+            className="chart-axis-tick-line"
+          />
+          <text
+            x={xCenter(i)}
+            y={padT + innerH + 36}
+            textAnchor="middle"
+            className="chart-axis-label chart-axis-year"
+          >
+            Year {year}
+          </text>
+        </g>
+      ))}
+      <line
+        x1={padL}
+        y1={yZeroBar}
+        x2={padL + innerW}
+        y2={yZeroBar}
+        className="panel2-roi-chart-zero-line"
+      />
+      {YEARS.map((year, i) => {
+        const m = cumulNetM[i]
+        const yTop = yRight(m)
+        const barTop = Math.min(yZeroBar, yTop)
+        const barH = Math.max(2, Math.abs(yZeroBar - yTop))
+        const barPos = m >= 0
+        return (
+          <rect
+            key={`bar-${year}`}
+            x={xCenter(i) - barW / 2}
+            y={barTop}
+            width={barW}
+            height={barH}
+            rx={4}
+            className={`chart-bar panel2-roi-chart-bar${barPos ? ' panel2-roi-chart-bar-pos' : ' panel2-roi-chart-bar-neg'}`}
+          />
+        )
+      })}
+      {lineCoords.length >= 2 ? (
+        <polyline
+          className="roi-line panel2-roi-chart-line"
+          points={linePointsStr}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : null}
+      {lineCoords.map((p) => (
+        <circle
+          key={`pt-${p.year}`}
+          cx={p.x}
+          cy={p.y}
+          r={5}
+          className="panel2-roi-chart-line-marker"
+        />
+      ))}
+    </svg>
+  )
+}
+
+function RoiValuePanel({ cumulativeRoiTable }) {
+  const [panel2TangibleDetailOpen, setPanel2TangibleDetailOpen] =
+    useState(false)
+  const [panel2IntangibleDetailOpen, setPanel2IntangibleDetailOpen] =
+    useState(false)
+  const [
+    panel2CumulativeRoiTableVisible,
+    setPanel2CumulativeRoiTableVisible,
+  ] = useState(false)
+
   return (
     <main className="migration-panel">
       <header className="panel-header panel-header-context">
-        <p className="migration-eyebrow">Cloud migration simulator</p>
-        <p className="panel-title-context">ROI &amp; value drivers</p>
+        <p className="migration-eyebrow">Cloud migration simulator · Panel 2</p>
+        <p className="panel-title-context">ROI analysis</p>
         <p className="panel-subtitle">
-          Simulator-driven benefit hints, recurring savings assumptions,
-          five-year totals, and break-even visualization—aligned with your
-          Budget Planning cost model.
+          Tangible and intangible return tables (Tables 4–5 — v2), cumulative ROI
+          chart and summary table tied to Panel&nbsp;1 cost inputs.
         </p>
       </header>
 
-      <section className="panel-card sim-suggestions-card" aria-labelledby="sim-suggestions-heading">
-        <h2 id="sim-suggestions-heading" className="card-heading">Simulator suggestions</h2>
-        <p className="card-lead">
-          Live values derived from your <strong>CI/CD</strong> and <strong>Uptime</strong> simulator
-          settings. Click <strong>Apply</strong> to copy a value into{' '}
-          <strong>ROI assumptions</strong> on this panel (or overwrite Year 1–5 OpEx).
-        </p>
-        <div className="sim-suggestions-grid">
-          <div className="sim-suggestion-row">
-            <div className="sim-suggestion-meta">
-              <span className="sim-suggestion-label">Annual cloud OpEx</span>
-              <span className="sim-suggestion-source">
-                P6 · Redundancy {redundancy} · {multiRegion ? 'Multi-Region' : 'Single Region'}
-              </span>
-            </div>
-            <span className="sim-suggestion-value">{formatCurrency(suggestedOpexPerYear)}</span>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setOpexByYear(YEARS.map(() => String(suggestedOpexPerYear)))}
-            >
-              Apply to all years
-            </button>
-          </div>
-          <div className="sim-suggestion-row">
-            <div className="sim-suggestion-meta">
-              <span className="sim-suggestion-label">Annual downtime savings</span>
-              <span className="sim-suggestion-source">
-                P6 · {p6Uptime.toFixed(3)}% uptime vs 95% baseline · $20,000/hr incident cost
-              </span>
-            </div>
-            <span className="sim-suggestion-value">{formatCurrency(suggestedDowntimeSavings)}</span>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setAnnualDowntimeSavings(String(suggestedDowntimeSavings))}
-            >
-              Apply
-            </button>
-          </div>
-          <div className="sim-suggestion-row">
-            <div className="sim-suggestion-meta">
-              <span className="sim-suggestion-label">Annual productivity savings</span>
-              <span className="sim-suggestion-source">
-                P5 · {automationPct}% automation · failure rate {p5FailureRate}% vs 25% baseline
-              </span>
-            </div>
-            <span className="sim-suggestion-value">{formatCurrency(suggestedProductivitySavings)}</span>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setAnnualProductivitySavings(String(suggestedProductivitySavings))}
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="roi-inputs-heading">
-        <h2 id="roi-inputs-heading" className="card-heading">
-          ROI assumptions (annual benefit)
+      <section
+        className="panel-card"
+        aria-labelledby="panel2-ti-summary-heading"
+      >
+        <h2 id="panel2-ti-summary-heading" className="card-heading">
+          Tangible and intangible returns
         </h2>
         <p className="card-lead">
-          Expected recurring benefit after migration — scaled linearly across
-          five years.
+          Master summary excerpt (Table&nbsp;6 — v2): the two benefit streams shown
+          in Table&nbsp;6, plus combined total returns.
         </p>
-        <div className="assumptions-grid">
-          <label className="field-label">
-            <span>Annual downtime savings ($)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-money"
-              value={annualDowntimeSavings}
-              onChange={(e) => setAnnualDowntimeSavings(e.target.value)}
-            />
-          </label>
-          <label className="field-label">
-            <span>Annual productivity savings ($)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-money"
-              value={annualProductivitySavings}
-              onChange={(e) => setAnnualProductivitySavings(e.target.value)}
-            />
-          </label>
-          <label className="field-label">
-            <span>Annual data center cost avoided ($)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-money"
-              value={annualDataCenterAvoided}
-              onChange={(e) => setAnnualDataCenterAvoided(e.target.value)}
-            />
-          </label>
+        <div className="table-scroll">
+          <table className="data-table data-table-panel2-table6-summary">
+            <thead>
+              <tr>
+                <th scope="col">Line</th>
+                <th scope="col" className="num">
+                  Year 1
+                </th>
+                <th scope="col" className="num">
+                  Year 2
+                </th>
+                <th scope="col" className="num">
+                  Year 3
+                </th>
+                <th scope="col" className="num">
+                  Year 4
+                </th>
+                <th scope="col" className="num">
+                  Year 5
+                </th>
+                <th scope="col" className="num">
+                  5-Yr total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {PANEL2_TABLE6_TI_SUMMARY_ROWS.map((row) =>
+                row.t === 'total' ? (
+                  <tr key={row.line} className="data-table-total-row">
+                    <td>
+                      <strong>{row.line}</strong>
+                    </td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.y1)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.y2)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.y3)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.y4)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.y5)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.fiveYr)}
+                    </td>
+                  </tr>
+                ) : row.detailKey === 'tangible' ? (
+                  <tr key={row.line}>
+                    <td>
+                      <span className="panel1-cashflow-capex-row-head">
+                        <span className="panel1-cashflow-capex-row-label">
+                          {row.line}
+                        </span>
+                        <button
+                          type="button"
+                          className="panel1-capex-expand-btn panel1-capex-expand-btn--table"
+                          aria-expanded={panel2TangibleDetailOpen}
+                          aria-controls="panel2-tangible-detail"
+                          aria-label={
+                            panel2TangibleDetailOpen
+                              ? 'Hide Tangible returns detail table'
+                              : 'Show Tangible returns detail table'
+                          }
+                          onClick={() =>
+                            setPanel2TangibleDetailOpen((o) => !o)
+                          }
+                        >
+                          {panel2TangibleDetailOpen ? '−' : '+'}
+                        </button>
+                      </span>
+                    </td>
+                    <td className="num">{formatRoiReturnsCell(row.y1)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y2)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y3)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y4)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y5)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.fiveYr)}</td>
+                  </tr>
+                ) : row.detailKey === 'intangible' ? (
+                  <tr key={row.line}>
+                    <td>
+                      <span className="panel1-cashflow-capex-row-head">
+                        <span className="panel1-cashflow-capex-row-label">
+                          {row.line}
+                        </span>
+                        <button
+                          type="button"
+                          className="panel1-capex-expand-btn panel1-capex-expand-btn--table"
+                          aria-expanded={panel2IntangibleDetailOpen}
+                          aria-controls="panel2-intangible-detail"
+                          aria-label={
+                            panel2IntangibleDetailOpen
+                              ? 'Hide Intangible returns detail table'
+                              : 'Show Intangible returns detail table'
+                          }
+                          onClick={() =>
+                            setPanel2IntangibleDetailOpen((o) => !o)
+                          }
+                        >
+                          {panel2IntangibleDetailOpen ? '−' : '+'}
+                        </button>
+                      </span>
+                    </td>
+                    <td className="num">{formatRoiReturnsCell(row.y1)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y2)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y3)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y4)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y5)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.fiveYr)}</td>
+                  </tr>
+                ) : (
+                  <tr key={row.line}>
+                    <td>{row.line}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y1)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y2)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y3)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y4)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y5)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.fiveYr)}</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 
-      <section className="summary-strip" aria-label="Five-year summary">
-        <div className="summary-tile">
-          <span className="summary-label">Total 5-yr OpEx</span>
-          <span className="summary-value">{formatCurrency(totalOpex5)}</span>
-        </div>
-        <div className="summary-tile">
-          <span className="summary-label">Total 5-yr CapEx</span>
-          <span className="summary-value">{formatCurrency(totalCapex5)}</span>
-        </div>
-        <div className="summary-tile summary-tile-accent">
-          <span className="summary-label">Total 5-yr cost</span>
-          <span className="summary-value">{formatCurrency(totalCost5)}</span>
-        </div>
-        <div className="summary-tile summary-tile-positive">
-          <span className="summary-label">Total 5-yr benefits</span>
-          <span className="summary-value">{formatCurrency(totalBenefits5)}</span>
-        </div>
-        <div className="summary-tile summary-tile-roi">
-          <span className="summary-label">ROI</span>
-          <span className="summary-value">
-            {roiPct === null ? '—' : `${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(1)}%`}
-          </span>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="breakeven-heading">
-        <h2 id="breakeven-heading" className="card-heading">
-          ROI break-even
+      {panel2TangibleDetailOpen ? (
+      <section
+        className="panel-card"
+        id="panel2-tangible-detail"
+        aria-labelledby="panel2-tangible-heading"
+      >
+        <h2 id="panel2-tangible-heading" className="card-heading">
+          Tangible returns
         </h2>
         <p className="card-lead">
-          Cumulative migration spend versus cumulative benefits (equal annual
-          savings each year). Break-even is the first time benefits catch costs
-          after deployment drags the net position underwater—assuming straight
-          lines between year-end balances.
+          Pure revenue &amp; productivity value (Table&nbsp;4 — v2). Does not double-count
+          OPEX savings captured in Panel&nbsp;1 / Table&nbsp;3B.
         </p>
-        <div className="chart-legend">
-          <span className="legend-item">
-            <span className="legend-line legend-line-benefit" /> Cumulative
-            benefits
-          </span>
-          <span className="legend-item">
-            <span className="legend-line legend-line-cost" /> Cumulative cost
-          </span>
-          {breakevenPoint ? (
-            <span className="legend-item">
-              <span className="legend-line legend-line-breakeven" /> Break-even
-            </span>
-          ) : null}
+        <div className="table-scroll">
+          <table className="data-table data-table-panel2-tangible">
+            <thead>
+              <tr>
+                <th scope="col">Group</th>
+                <th scope="col">Line item</th>
+                <th scope="col" className="num">
+                  Stabilized (Y3)
+                </th>
+                <th scope="col" className="num">
+                  Year 1
+                </th>
+                <th scope="col" className="num">
+                  Year 2
+                </th>
+                <th scope="col" className="num">
+                  Year 3
+                </th>
+                <th scope="col" className="num">
+                  Year 4
+                </th>
+                <th scope="col" className="num">
+                  Year 5
+                </th>
+                <th scope="col" className="num">
+                  5-Yr total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {PANEL2_TABLE4_TANGIBLE_ROWS.map((row, idx) =>
+                row.t === 'g' ? (
+                  <tr
+                    key={`t4-g-${idx}-${row.label}`}
+                    className="panel1-table1-group-row"
+                  >
+                    <td colSpan={9}>
+                      <strong>{row.label}</strong>
+                    </td>
+                  </tr>
+                ) : row.t === 'total' ? (
+                  <tr key="t4-total" className="data-table-total-row">
+                    <td />
+                    <td>
+                      <strong>{row.line}</strong>
+                    </td>
+                    <td className="num">—</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y1)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y2)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y3)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y4)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y5)}</td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.fiveYr)}
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={`t4-l-${idx}-${row.line.slice(0, 20)}`}>
+                    <td />
+                    <td>{row.line}</td>
+                    <td className="num">{formatRoiReturnsCell(row.stabilized)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y1)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y2)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y3)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y4)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y5)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.fiveYr)}</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
         </div>
-        <RoiBreakevenChart curvePoints={roiCurve} breakeven={breakevenPoint} />
-        <div className="breakeven-callout" role="status">
-          {breakevenExplanation.headline ? (
-            <p className="breakeven-callout-head">{breakevenExplanation.headline}</p>
-          ) : null}
-          <p className="breakeven-callout-body">{breakevenExplanation.body}</p>
+        <div className="panel1-capex-detail-footer">
+          <button
+            type="button"
+            className="btn-secondary panel1-capex-hide-btn"
+            onClick={() => setPanel2TangibleDetailOpen(false)}
+          >
+            Hide
+          </button>
         </div>
       </section>
+      ) : null}
+
+      {panel2IntangibleDetailOpen ? (
+      <section
+        className="panel-card"
+        id="panel2-intangible-detail"
+        aria-labelledby="panel2-intangible-heading"
+      >
+        <h2 id="panel2-intangible-heading" className="card-heading">
+          Intangible returns
+        </h2>
+        <p className="card-lead">
+          Quantified intangibles (Table&nbsp;5 — v2). Methods: IE = Incremental
+          Earnings, CA = Cost Avoidance, PM = Proxy Method, SB = Surveys &amp;
+          Baseline (see source table legend).
+        </p>
+        <div className="table-scroll">
+          <table className="data-table data-table-panel2-intangible">
+            <thead>
+              <tr>
+                <th scope="col">Group</th>
+                <th scope="col">Line item</th>
+                <th scope="col">Method</th>
+                <th scope="col" className="num">
+                  Year 1
+                </th>
+                <th scope="col" className="num">
+                  Year 2
+                </th>
+                <th scope="col" className="num">
+                  Year 3
+                </th>
+                <th scope="col" className="num">
+                  Year 4
+                </th>
+                <th scope="col" className="num">
+                  Year 5
+                </th>
+                <th scope="col" className="num">
+                  5-Yr total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {PANEL2_TABLE5_INTANGIBLE_ROWS.map((row, idx) =>
+                row.t === 'g' ? (
+                  <tr
+                    key={`t5-g-${idx}-${row.label}`}
+                    className="panel1-table1-group-row"
+                  >
+                    <td colSpan={9}>
+                      <strong>{row.label}</strong>
+                    </td>
+                  </tr>
+                ) : row.t === 'total' ? (
+                  <tr key="t5-total" className="data-table-total-row">
+                    <td />
+                    <td>
+                      <strong>{row.line}</strong>
+                    </td>
+                    <td />
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y1)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y2)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y3)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y4)}</td>
+                    <td className="num num-strong">{formatRoiReturnsCell(row.y5)}</td>
+                    <td className="num num-strong">
+                      {formatRoiReturnsCell(row.fiveYr)}
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={`t5-l-${idx}-${row.line.slice(0, 20)}`}>
+                    <td />
+                    <td>{row.line}</td>
+                    <td className="roi-table-method-cell">
+                      <em>{row.method}</em>
+                    </td>
+                    <td className="num">{formatRoiReturnsCell(row.y1)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y2)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y3)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y4)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.y5)}</td>
+                    <td className="num">{formatRoiReturnsCell(row.fiveYr)}</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel1-capex-detail-footer">
+          <button
+            type="button"
+            className="btn-secondary panel1-capex-hide-btn"
+            onClick={() => setPanel2IntangibleDetailOpen(false)}
+          >
+            Hide
+          </button>
+        </div>
+      </section>
+      ) : null}
+
+      <section
+        className="panel-card"
+        aria-labelledby="panel2-roi-chart-heading"
+      >
+        <div className="panel2-roi-chart-header-row">
+          <h2
+            id="panel2-roi-chart-heading"
+            className="card-heading panel2-roi-chart-heading"
+          >
+            ROI chart
+          </h2>
+          <div className="panel2-roi-chart-toggle-wrap">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={panel2CumulativeRoiTableVisible}
+              aria-label={
+                panel2CumulativeRoiTableVisible
+                  ? 'Hide cumulative ROI table'
+                  : 'Show cumulative ROI table'
+              }
+              className={`p6-toggle${panel2CumulativeRoiTableVisible ? ' p6-toggle-on' : ''}`}
+              onClick={() =>
+                setPanel2CumulativeRoiTableVisible((v) => !v)
+              }
+            >
+              <span className="p6-toggle-knob" />
+            </button>
+          </div>
+        </div>
+        <p className="card-lead">
+          Same numbers as <strong>Cumulative ROI table</strong>
+          {' '}(use the toggle to show it){' '}:
+          cumulative ROI (<strong>%</strong>, left scale, line) versus cumulative
+          net cash flow (<strong>million USD</strong>, right scale, bars).
+        </p>
+        <div className="chart-legend panel2-roi-chart-legend">
+          <span className="legend-item">
+            <span className="legend-line panel2-roi-chart-legend-line" />{' '}
+            Cumulative ROI
+          </span>
+          <span className="legend-item">
+            <span className="legend-swatch panel2-roi-chart-legend-swatch" />{' '}
+            Cumul. net cash flow
+          </span>
+        </div>
+        <Panel2RoiDualAxisChart cumulativeRoiTable={cumulativeRoiTable} />
+      </section>
+
+      {panel2CumulativeRoiTableVisible ? (
+      <section
+        className="panel-card"
+        aria-labelledby="panel2-cumulative-roi-heading"
+      >
+        <h2 id="panel2-cumulative-roi-heading" className="card-heading">
+          Cumulative ROI table
+        </h2>
+        <p className="card-lead">
+          <strong>A</strong> is modeled CAPEX (Panel&nbsp;1 Table&nbsp;1).{' '}
+          <strong>Baseline On-Prem OPEX</strong> is 100% of Table&nbsp;2 annual
+          baseline total in Year&nbsp;1, then compounds by the Cash flow{' '}
+          <strong>Annual OpEx change (%)</strong> each year.{' '}
+          <strong>B. Total Returns</strong> =
+          baseline − (Panel&nbsp;1 <strong>OPEX (On-Premise)</strong>
+          {' + '}
+          <strong>OPEX (Cloud + AI)</strong>)
+          {' '}
+          + tangible + intangible yearly totals from Panel&nbsp;2 Tables&nbsp;4
+          &amp; 5. <strong>C</strong> =
+          <strong>B − A</strong>. Dollar rows are USD;{' '}
+          <strong>Cumulative ROI</strong> =
+          cumulative <strong>C</strong>
+          ÷ cumulative <strong>A</strong> (&times;100%).
+        </p>
+        <div className="table-scroll">
+          <table className="data-table data-table-panel2-cumulative-roi">
+            <thead>
+              <tr>
+                <th scope="col">Indicator (USD)</th>
+                {YEARS.map((y) => (
+                  <th key={y} scope="col" className="num">
+                    Year {y}
+                  </th>
+                ))}
+                <th scope="col" className="num">
+                  5yr-Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">A. CAPEX</th>
+                {cumulativeRoiTable.capex.map((v, yi) => (
+                  <td key={yi} className="num">
+                    {formatCurrency(v)}
+                  </td>
+                ))}
+                <td className="num">
+                  {formatCurrency(cumulativeRoiTable.totals.capex)}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Cumul. CAPEX</th>
+                {cumulativeRoiTable.cumulCapex.map((v, yi) => (
+                  <td key={yi} className="num">
+                    {formatCurrency(v)}
+                  </td>
+                ))}
+                <td className="num">
+                  {formatCurrency(cumulativeRoiTable.totals.cumulCapex)}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">B. Total Returns</th>
+                {cumulativeRoiTable.totalReturns.map((v, yi) => (
+                  <td key={yi} className="num">
+                    {formatCurrency(v)}
+                  </td>
+                ))}
+                <td className="num">
+                  {formatCurrency(cumulativeRoiTable.totals.totalReturns)}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">C. Net Cash Flow (B − A)</th>
+                {cumulativeRoiTable.netCashFlow.map((v, yi) => (
+                  <td key={yi} className="num">
+                    {formatCurrency(v)}
+                  </td>
+                ))}
+                <td className="num">
+                  {formatCurrency(cumulativeRoiTable.totals.netCashFlow)}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Cumul. Net Cash Flow</th>
+                {cumulativeRoiTable.cumulNet.map((v, yi) => (
+                  <td key={yi} className="num">
+                    {formatCurrency(v)}
+                  </td>
+                ))}
+                <td className="num">
+                  {formatCurrency(cumulativeRoiTable.totals.cumulNet)}
+                </td>
+              </tr>
+              <tr className="data-table-total-row">
+                <th scope="row">
+                  <strong>Cumulative ROI</strong>
+                </th>
+                {cumulativeRoiTable.cumulativeRoiFraction.map((frac, yi) => (
+                  <td key={yi} className="num num-strong">
+                    {formatPanel2CumulativeRoiRatio(frac)}
+                  </td>
+                ))}
+                <td className="num num-strong">
+                  {formatPanel2CumulativeRoiRatio(
+                    cumulativeRoiTable.totals.cumulativeRoiFraction,
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      ) : null}
     </main>
   )
 }
@@ -3551,11 +4410,9 @@ function App() {
   const [panel1AnnualOpexGrowthPct, setPanel1AnnualOpexGrowthPct] =
     useState(3)
 
-  const [annualDowntimeSavings, setAnnualDowntimeSavings] = useState('300000')
-  const [annualProductivitySavings, setAnnualProductivitySavings] =
-    useState('200000')
-  const [annualDataCenterAvoided, setAnnualDataCenterAvoided] =
-    useState('250000')
+  const [annualDowntimeSavings] = useState('300000')
+  const [annualProductivitySavings] = useState('200000')
+  const [annualDataCenterAvoided] = useState('250000')
 
   const [aiFraudInvestment, setAiFraudInvestment] = useState(80000)
   const [aiCxInvestment, setAiCxInvestment] = useState(80000)
@@ -3680,6 +4537,26 @@ function App() {
     [opexModelOverride, panel1CombinedOpexFromTables],
   )
 
+  const panel2CumulativeRoiTable = useMemo(() => {
+    const onP = panel1Table2OnpremSums
+    const onPremiseOpexByYear = [onP.y1, onP.y2, 0, 0, 0]
+    const cl = panel1Table3CloudSums
+    const cloudAiOpexByYear = [cl.y1, cl.y2, cl.y3, cl.y4, cl.y5]
+    return buildPanel2CumulativeRoiSeries(
+      panel1NumericCapexByYear,
+      panel1BaselineOnPremForChart,
+      onPremiseOpexByYear,
+      cloudAiOpexByYear,
+      panel2TangibleReturnsByYear(),
+      panel2IntangibleReturnsByYear(),
+    )
+  }, [
+    panel1NumericCapexByYear,
+    panel1BaselineOnPremForChart,
+    panel1Table2OnpremSums,
+    panel1Table3CloudSums,
+  ])
+
   const panel1CashflowRowsForUi = useMemo(() => {
     const capexYears = panel1NumericCapexByYear
     const op = panel1OnpremTotalsAligned
@@ -3750,60 +4627,10 @@ function App() {
     ).rows
   }, [numericOpexForModel, panel1NumericCapexByYear])
 
-  const totalOpex5 = rows.reduce((acc, r) => acc + r.opex, 0)
-  const totalCapex5 = rows.reduce((acc, r) => acc + r.capex, 0)
-  const totalCost5 = totalOpex5 + totalCapex5
-
   const annualBenefits =
     parseMoney(annualDowntimeSavings) +
     parseMoney(annualProductivitySavings) +
     parseMoney(annualDataCenterAvoided)
-  const totalBenefits5 = annualBenefits * 5
-
-  const roiPct =
-    totalCost5 === 0
-      ? null
-      : ((totalBenefits5 - totalCost5) / totalCost5) * 100
-
-  const roiCurve = useMemo(
-    () => buildRoiCurve(rows, annualBenefits),
-    [rows, annualBenefits],
-  )
-
-  const breakevenPoint = useMemo(() => {
-    if (annualBenefits <= 0) return null
-    return findRoiBreakeven(roiCurve)
-  }, [roiCurve, annualBenefits])
-
-  const breakevenExplanation = useMemo(() => {
-    if (annualBenefits <= 0) {
-      return {
-        headline: null,
-        body: 'Enter positive annual benefits to chart when cumulative value catches cumulative investment.',
-      }
-    }
-    if (breakevenPoint) {
-      return {
-        headline: `${breakevenPoint.tStar.toFixed(2)} years from program start`,
-        body: `The two cumulative curves intersect at about ${formatCurrency(breakevenPoint.amount)}. Interpolation is linear between year-end balances (start at $0 / $0, then each fiscal year-end).`,
-      }
-    }
-    const last = roiCurve[roiCurve.length - 1]
-    const lastGap = last.cumulativeBenefit - last.cumulativeCost
-    const alwaysAhead = roiCurve.every(
-      (p) => p.t === 0 || p.cumulativeBenefit - p.cumulativeCost >= -1,
-    )
-    if (alwaysAhead && lastGap >= -1) {
-      return {
-        headline: 'No separate recovery crossing',
-        body: 'Benefits meet or exceed costs at every year-end on this path—there is no underwater period to recover from.',
-      }
-    }
-    return {
-      headline: 'Not within five years',
-      body: 'Cumulative costs remain ahead through Year 5 on this model. Raise annual benefits or lower spend to pull break-even left.',
-    }
-  }, [annualBenefits, breakevenPoint, roiCurve])
 
   function handlePanel1Table1LineBudgetChange(rowIndex, raw) {
     const parsed = splitPanel1Table1BudgetToYears(parseMoney(raw))
@@ -3843,26 +4670,6 @@ function App() {
   const _p6UptimeSingle = _uptimeBase[redundancy - 1]
   const _p6UptimeMulti = Math.min(99.999, _p6UptimeSingle + _uptimeDelta[redundancy - 1])
   const p6Uptime = multiRegion ? _p6UptimeMulti : _p6UptimeSingle
-  const p6RegionMult = multiRegion ? 1.85 : 1
-  const p6MonthlyCost = Math.round(5000 * Math.pow(redundancy, 1.7) * p6RegionMult)
-  const p6DowntimeHrs = Math.round(((100 - p6Uptime) / 100) * 8760 * 10) / 10
-
-  const _p5BaseFailure = 25
-  const _p5FailureReduction = automationPct >= 70
-    ? 0.4 + ((automationPct - 70) / 30) * 0.2
-    : (automationPct / 70) * 0.4
-  const p5FailureRate = Math.round(Math.max(3, _p5BaseFailure * (1 - _p5FailureReduction)) * 10) / 10
-  const _p5BaseFreq = (teamSize / 5) * 2
-  const _p5AutoFactor = automationPct >= 70
-    ? 1.5 + ((automationPct - 70) / 30) * 0.4
-    : 0.6 + (automationPct / 70) * 0.4
-  const p5DeployFreq = Math.round(_p5BaseFreq * _p5AutoFactor * 10) / 10
-
-  const suggestedOpexPerYear = p6MonthlyCost * 12
-  const _p6BaselineDowntimeHrs = ((100 - 95.0) / 100) * 8760
-  const suggestedDowntimeSavings = Math.round(Math.max(0, (_p6BaselineDowntimeHrs - p6DowntimeHrs) * 20000) / 1000) * 1000
-  const _p5AvoidsPerYear = Math.round(((_p5BaseFailure - p5FailureRate) / 100) * p5DeployFreq * 52)
-  const suggestedProductivitySavings = Math.round(_p5AvoidsPerYear * 2500 / 1000) * 1000
 
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
@@ -3876,7 +4683,9 @@ function App() {
       ? 'Technology Benefit Simulator'
       : activeView === 'budget'
         ? 'Panel 1: Cost Estimation'
-        : activeView === 'panels'
+        : activeView === 'roi'
+          ? 'Panel 2: ROI Analysis'
+          : activeView === 'panels'
           ? 'Governance, CI/CD & Uptime Simulators'
           : activeView === 'sensitivity'
             ? 'Panel 7: ROI Sensitivity Explorer'
@@ -3884,7 +4693,7 @@ function App() {
               ? 'Panel 8: Adoption Curve'
               : activeView === 'diffusion'
                 ? 'Panel 9: Diffusion Simulator'
-                : 'ROI and Value Analysis'
+                : 'Technology Benefit Simulator'
 
   return (
     <div className="app-shell">
@@ -3927,7 +4736,7 @@ function App() {
             >
               <IconRoiValue className="sidebar-nav-svg" />
               <span className="sidebar-nav-label">
-                ROI and Value Analysis
+                Panel 2: ROI Analysis
               </span>
             </button>
             <button
@@ -4590,33 +5399,7 @@ function App() {
           aria-hidden={!isRoi}
           style={{ display: isRoi ? 'block' : 'none' }}
         >
-          <RoiValuePanel
-            redundancy={redundancy}
-            multiRegion={multiRegion}
-            p6Uptime={p6Uptime}
-            suggestedOpexPerYear={suggestedOpexPerYear}
-            suggestedDowntimeSavings={suggestedDowntimeSavings}
-            suggestedProductivitySavings={suggestedProductivitySavings}
-            automationPct={automationPct}
-            p5FailureRate={p5FailureRate}
-            setOpexByYear={(yearStrings) =>
-              setOpexModelOverride(yearStrings.map(parseMoney))
-            }
-            setAnnualDowntimeSavings={setAnnualDowntimeSavings}
-            setAnnualProductivitySavings={setAnnualProductivitySavings}
-            annualDowntimeSavings={annualDowntimeSavings}
-            annualProductivitySavings={annualProductivitySavings}
-            annualDataCenterAvoided={annualDataCenterAvoided}
-            setAnnualDataCenterAvoided={setAnnualDataCenterAvoided}
-            totalOpex5={totalOpex5}
-            totalCapex5={totalCapex5}
-            totalCost5={totalCost5}
-            totalBenefits5={totalBenefits5}
-            roiPct={roiPct}
-            roiCurve={roiCurve}
-            breakevenPoint={breakevenPoint}
-            breakevenExplanation={breakevenExplanation}
-          />
+          <RoiValuePanel cumulativeRoiTable={panel2CumulativeRoiTable} />
         </div>
 
         <div
