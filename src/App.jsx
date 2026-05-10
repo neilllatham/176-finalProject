@@ -3919,6 +3919,113 @@ function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
   )
 }
 
+function Panel2IntangibleMethodTipProxy() {
+  return (
+    <div className="roi-method-tip-inner">
+      <p className="roi-method-tip-heading">The Proxy Method</p>
+      <p>
+        You cannot directly measure the value of something, so you find a
+        related metric that is known to correlate with money, and use it as a
+        stand-in. For example, you cannot price &quot;better customer
+        experience&quot; directly, but you know that a 1% reduction in churn
+        retains 3,500 customers each worth $500 in annual premium — so that
+        retention figure becomes your proxy for experience value. The key
+        discipline is applying a confidence weight, because the correlation
+        between the proxy and true value is never perfect.
+      </p>
+    </div>
+  )
+}
+
+function Panel2IntangibleMethodTipIncremental() {
+  return (
+    <div className="roi-method-tip-inner">
+      <p className="roi-method-tip-heading">Incremental Earnings</p>
+      <p>
+        This method counts only the new revenue or profit that would not exist
+        without the transformation. It asks:{' '}
+        <em>What new money comes in purely because of this project?</em> For
+        example, AI-powered underwriting improves your loss ratio by 1.5
+        points on a $250M premium base, generating $3.75M in additional annual
+        profit. Or a new digital self-service portal captures customers who
+        previously went to a competitor. The key discipline is being strict
+        about what is truly incremental — revenue that would have grown
+        organically anyway must be excluded.
+      </p>
+    </div>
+  )
+}
+
+function Panel2IntangibleMethodTipCostAvoidance() {
+  return (
+    <div className="roi-method-tip-inner">
+      <p className="roi-method-tip-heading">Cost Avoidance / Reduction</p>
+      <p>
+        This is the most auditable method.{' '}
+        <strong>Cost reduction</strong> means you spend less on something you
+        already pay for — for example, your cyber insurance premium drops by
+        $350K because your cloud security posture is demonstrably stronger.{' '}
+        <strong>Cost avoidance</strong> means preventing a future cost that
+        has not yet appeared — for example, reducing your data breach
+        probability from 18% to 4% avoids an expected annual loss of $921K,
+        even though no breach has occurred. Both are real financial returns,
+        grounded in documented baselines rather than revenue assumptions.
+      </p>
+    </div>
+  )
+}
+
+function Panel2IntangibleMethodTipSurveys() {
+  return (
+    <div className="roi-method-tip-inner">
+      <p className="roi-method-tip-heading">Surveys and Baseline</p>
+      <p>
+        You ask a structured sample of customers, employees, or investors how
+        much they value a specific attribute, then measure the financial
+        equivalent of their responses. For example, if 20% of commercial clients
+        say they would pay a 3% premium to insure with a verified net-zero
+        carrier, that stated preference translates to a quantified return. The{' '}
+        &quot;baseline&quot; means you measure before and after the
+        transformation, and the difference is your return.{' '}
+        <strong>This method carries the highest uncertainty of the four, so it
+        should always use conservative confidence weights.</strong>
+      </p>
+    </div>
+  )
+}
+
+const PANEL2_INTANGIBLE_METHOD_TIP = {
+  'Proxy Method': Panel2IntangibleMethodTipProxy,
+  'Incremental Earnings': Panel2IntangibleMethodTipIncremental,
+  'Cost Avoidance': Panel2IntangibleMethodTipCostAvoidance,
+  'Surveys & Baseline': Panel2IntangibleMethodTipSurveys,
+}
+
+function Panel2IntangibleMethodHelp({ method, tipId }) {
+  const TipBody = PANEL2_INTANGIBLE_METHOD_TIP[method]
+  if (!TipBody) {
+    return <em>{method}</em>
+  }
+  return (
+    <span className="roi-method-with-help">
+      <em>{method}</em>{' '}
+      <span className="roi-method-tip-anchor">
+        <button
+          type="button"
+          className="roi-method-tip-icon"
+          aria-describedby={tipId}
+          aria-label={`Explain how ${method} estimates are derived`}
+        >
+          ?
+        </button>
+        <span id={tipId} className="roi-method-tip-flyout" role="tooltip">
+          <TipBody />
+        </span>
+      </span>
+    </span>
+  )
+}
+
 function RoiValuePanel({ cumulativeRoiTable }) {
   const [panel2TangibleDetailOpen, setPanel2TangibleDetailOpen] =
     useState(false)
@@ -4193,7 +4300,8 @@ function RoiValuePanel({ cumulativeRoiTable }) {
         <p className="card-lead">
           Quantified intangibles (Table&nbsp;5 — v2). Methods: IE = Incremental
           Earnings, CA = Cost Avoidance, PM = Proxy Method, SB = Surveys &amp;
-          Baseline (see source table legend).
+          Baseline — hover the <strong>?</strong> next to a method name for a full
+          description of how that estimate is grounded.
         </p>
         <div className="table-scroll">
           <table className="data-table data-table-panel2-intangible">
@@ -4254,7 +4362,10 @@ function RoiValuePanel({ cumulativeRoiTable }) {
                     <td />
                     <td>{row.line}</td>
                     <td className="roi-table-method-cell">
-                      <em>{row.method}</em>
+                      <Panel2IntangibleMethodHelp
+                        method={row.method}
+                        tipId={`panel2-intangible-method-tip-${idx}`}
+                      />
                     </td>
                     <td className="num">{formatRoiReturnsCell(row.y1)}</td>
                     <td className="num">{formatRoiReturnsCell(row.y2)}</td>

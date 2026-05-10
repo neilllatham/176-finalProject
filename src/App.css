@@ -960,6 +960,109 @@
   color: var(--text-muted, var(--text));
 }
 
+.roi-method-with-help {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25em;
+  vertical-align: top;
+}
+
+.roi-method-tip-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.roi-method-tip-icon {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  min-width: 1.125rem;
+  min-height: 1.125rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: help;
+  vertical-align: super;
+}
+
+.roi-method-tip-icon:hover,
+.roi-method-tip-icon:focus-visible {
+  color: var(--text-h);
+  border-color: var(--text-muted);
+  outline: 2px solid var(--focus-ring, Highlight);
+  outline-offset: 1px;
+}
+
+.roi-method-tip-flyout {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  width: min(22rem, 85vw);
+  max-height: min(22rem, 70vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem 1rem;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--text);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    visibility 0.12s linear,
+    opacity 0.12s ease;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg, var(--surface, #fff));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+}
+
+.roi-method-tip-anchor:hover .roi-method-tip-flyout,
+.roi-method-tip-anchor:focus-within .roi-method-tip-flyout {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.roi-method-tip-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.roi-method-tip-inner p {
+  margin: 0;
+}
+
+.roi-method-tip-heading {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-h);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roi-method-tip-flyout {
+    transition: none;
+  }
+}
+
 .data-table-panel1-cloud-t3 .data-table-th-wrap {
   display: inline-block;
   max-width: 7.5rem;
