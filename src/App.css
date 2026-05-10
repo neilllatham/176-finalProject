@@ -383,6 +383,11 @@
   box-sizing: border-box;
 }
 
+/** Extra air between the Welcome hero and the first content card (Project purpose). */
+.landing-hero-card + .landing-overview-section {
+  margin-top: 28px;
+}
+
 .landing-hero-card {
   padding: clamp(22px, 4vw, 32px)
     clamp(24px, 4vw, 44px)
@@ -457,6 +462,27 @@
   .landing-hint-soft {
     border-top-color: var(--border);
   }
+}
+
+.landing-overview-section .card-heading {
+  margin-top: 0;
+}
+
+.landing-purpose-lead {
+  max-width: none;
+  text-align: justify;
+  text-align-last: left;
+  hyphens: auto;
+}
+
+.data-table-landing-baseline {
+  min-width: min(760px, 100%);
+}
+
+.data-table-landing-baseline th[scope='row'] {
+  font-weight: 600;
+  color: var(--text-h);
+  white-space: nowrap;
 }
 
 .budget-route,
@@ -903,6 +929,29 @@
   font-size: 14px;
 }
 
+.data-table-panel2-tangible,
+.data-table-panel2-intangible {
+  min-width: min(980px, 100%);
+  font-size: 14px;
+}
+
+.data-table-panel2-table6-summary {
+  min-width: min(720px, 100%);
+  font-size: 14px;
+}
+
+.data-table-panel2-cumulative-roi {
+  min-width: min(880px, 100%);
+  font-size: 14px;
+}
+
+.data-table-panel2-intangible .roi-table-method-cell {
+  max-width: 14rem;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-muted, var(--text));
+}
+
 .data-table-panel1-cloud-t3 .data-table-th-wrap {
   display: inline-block;
   max-width: 7.5rem;
@@ -1087,6 +1136,119 @@
   width: 100%;
   height: auto;
   max-height: 340px;
+}
+
+.panel2-roi-chart-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 0 6px;
+}
+
+.panel2-roi-chart-heading {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+}
+
+.panel2-roi-chart-toggle-wrap {
+  flex-shrink: 0;
+}
+
+.panel2-roi-dual-chart {
+  max-height: 380px;
+}
+
+.panel2-roi-chart-legend-line {
+  border-bottom: 3px solid #0f172a;
+  width: 26px;
+}
+
+.panel2-roi-chart-legend-swatch {
+  width: 22px;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #16a34a 50%, #dc2626 50%);
+}
+
+.panel2-roi-chart-bar-pos {
+  fill: #16a34a;
+}
+
+.panel2-roi-chart-bar-neg {
+  fill: #dc2626;
+}
+
+.panel2-roi-chart-line {
+  stroke: #0f172a;
+}
+
+.panel2-roi-chart-line-marker {
+  fill: var(--bg);
+  stroke: #0f172a;
+  stroke-width: 2.5;
+}
+
+.panel2-roi-chart-zero-line {
+  stroke: var(--border);
+  stroke-dasharray: 6 8;
+  stroke-width: 1.25;
+}
+
+.chart-axis-unit {
+  font-size: 11px;
+  font-family: var(--sans);
+  font-weight: 600;
+  opacity: 0.88;
+}
+
+.chart-axis-unit-left {
+  fill: var(--text-h);
+}
+
+.chart-axis-unit-right {
+  fill: var(--text-h);
+}
+
+.chart-axis-label-dual {
+  font-size: 11px;
+}
+
+.chart-axis-tick-left {
+  fill: var(--text);
+  font-weight: 500;
+}
+
+.chart-axis-tick-right {
+  fill: var(--text);
+  font-weight: 500;
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel2-roi-chart-legend-line {
+    border-bottom-color: #f8fafc;
+  }
+
+  .panel2-roi-chart-legend-swatch {
+    background: linear-gradient(90deg, #4ade80 50%, #f87171 50%);
+  }
+
+  .panel2-roi-chart-bar-pos {
+    fill: #4ade80;
+  }
+
+  .panel2-roi-chart-bar-neg {
+    fill: #f87171;
+  }
+
+  .panel2-roi-chart-line {
+    stroke: #f8fafc;
+  }
+
+  .panel2-roi-chart-line-marker {
+    stroke: #f8fafc;
+  }
 }
 
 .chart-axis-tick-line {
