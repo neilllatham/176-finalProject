@@ -461,7 +461,7 @@
 
 .budget-route,
 .roi-route {
-  max-width: 1080px;
+  max-width: min(1480px, 100%);
   margin-inline: auto;
 }
 
@@ -519,10 +519,10 @@
   color: var(--text-h);
 }
 
-/* Panel 1: executive layout */
+/* Panel 1: executive layout — wide enough for Cash flow 7-column table */
 .migration-panel {
-  padding: 40px clamp(20px, 4vw, 48px) 64px;
-  max-width: 1080px;
+  padding: 40px clamp(16px, 3vw, 40px) 64px;
+  max-width: min(1480px, 100%);
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -776,6 +776,211 @@
   overflow-x: auto;
 }
 
+.panel1-cashflow-opex-slider {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 18px;
+  max-width: min(420px, 100%);
+}
+
+.panel1-cashflow-opex-slider-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.panel1-cashflow-opex-slider-value {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 2.75rem;
+}
+
+.panel1-cashflow-opex-slider input[type='range'] {
+  width: 100%;
+  max-width: 320px;
+  accent-color: var(--accent);
+}
+
+.data-table-panel1-3b {
+  width: 100%;
+  min-width: min(900px, 100%);
+  table-layout: auto;
+  font-size: 14px;
+}
+
+.data-table-panel1-3b th,
+.data-table-panel1-3b td {
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table-panel1-3b .num {
+  white-space: nowrap;
+}
+
+.panel1-cashflow-capex-row-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.panel1-cashflow-capex-row-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.panel1-capex-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 92%, var(--accent) 8%);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.panel1-capex-expand-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  border-color: var(--accent-border, var(--accent));
+}
+
+.panel1-capex-expand-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.panel1-capex-expand-btn--table {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+  border-radius: 6px;
+}
+
+.panel1-capex-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 4px;
+}
+
+.panel1-capex-hide-btn {
+  flex-shrink: 0;
+}
+
+.data-table-panel1-capex-t1 {
+  min-width: min(960px, 100%);
+  font-size: 14px;
+}
+
+.data-table-panel1-opex-t2 {
+  min-width: min(1100px, 100%);
+  font-size: 14px;
+}
+
+.data-table-panel1-cloud-t3 {
+  min-width: min(1220px, 100%);
+  font-size: 14px;
+}
+
+.data-table-panel1-cloud-t3 .data-table-th-wrap {
+  display: inline-block;
+  max-width: 7.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+  vertical-align: bottom;
+  hyphens: auto;
+}
+
+.data-table-panel1-cloud-t3 .panel1-table1-total-input {
+  width: 100%;
+  max-width: 11rem;
+  margin-left: auto;
+  display: block;
+  padding: 6px 8px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table-panel1-opex-t2 .panel1-table1-total-input {
+  width: 100%;
+  max-width: 11rem;
+  margin-left: auto;
+  display: block;
+  padding: 6px 8px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table-panel1-capex-t1 .panel1-table1-total-input {
+  width: 100%;
+  max-width: 11rem;
+  margin-left: auto;
+  display: block;
+  padding: 6px 8px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel1-table1-group-row td {
+  padding-top: 14px;
+  padding-bottom: 8px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-h);
+  background: color-mix(in srgb, var(--code-bg) 70%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel1-table1-group-row td {
+    background: color-mix(in srgb, var(--bg) 88%, var(--accent) 4%);
+  }
+}
+
+.data-table-year-phase {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  opacity: 0.88;
+}
+
+.data-table-year-phase-formula {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.data-table-total-row th,
+.data-table-total-row td {
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--code-bg) 55%, transparent);
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -832,16 +1037,16 @@
   border-radius: 3px;
 }
 
-.legend-swatch-opex {
-  background: linear-gradient(180deg, #0d9488, #0f766e);
+.legend-swatch-baseline-prem {
+  background: linear-gradient(180deg, #3b82f6, #1e40af);
 }
 
-.legend-swatch-capex {
-  background: linear-gradient(180deg, #ea580c, #c2410c);
+.legend-swatch-p1-capex {
+  background: linear-gradient(180deg, #fb923c, #c2410c);
 }
 
-.legend-swatch-total {
-  background: linear-gradient(180deg, #1d4ed8, #1e40af);
+.legend-swatch-p1-opex-combined {
+  background: linear-gradient(180deg, #93c5fd, #60a5fa);
 }
 
 .cost-chart {

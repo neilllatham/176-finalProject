@@ -3,6 +3,947 @@ import './App.css'
 
 const YEARS = [1, 2, 3, 4, 5]
 
+/**
+ * Panel 1 — Cash flow detail rows: Table 6 CAPEX line + Table 3B OPEX streams (v2).
+ * "Total Cost" is computed as the sum of these rows per period.
+ * @see 5-Year Detailed Financial Tables (v2 — Corrected)
+ */
+const PANEL1_CASHFLOW_DATA_ROWS = [
+  {
+    label: 'CAPEX (Cloud + AI)',
+    years: [4_264_200, 2_842_800, null, null, null],
+    fiveYrTotal: 7_107_000,
+  },
+  {
+    label: 'OPEX (On-Premise)',
+    years: [20_264_400, 8_105_760, null, null, null],
+    fiveYrTotal: 28_370_160,
+  },
+  {
+    label: 'OPEX (Cloud + AI)',
+    years: [4_266_960, 10_667_400, 14_223_200, 14_649_896, 15_089_393],
+    fiveYrTotal: 58_896_849,
+  },
+]
+
+function panel1SumCashflowTotals(rows) {
+  const yearly = YEARS.map((_, yi) =>
+    rows.reduce((sum, r) => {
+      const v = r.years[yi]
+      return sum + (v == null || !Number.isFinite(v) ? 0 : v)
+    }, 0),
+  )
+  const fiveYr = rows.reduce((sum, r) => sum + r.fiveYrTotal, 0)
+  return { yearly, fiveYr }
+}
+
+/** Table 1: 60% Year 1, remainder Year 2 (totals preserved). */
+function splitPanel1Table1BudgetToYears(totalUsd) {
+  const t = Math.max(0, Math.round(Number(totalUsd)) || 0)
+  const y1 = Math.round(t * 0.6)
+  const y2 = t - y1
+  return { total: t, y1, y2 }
+}
+
+function sumPanel1Table1LineBudgets(rows) {
+  return rows
+    .filter((r) => r.t === 'l')
+    .reduce(
+      (acc, r) => ({
+        total: acc.total + (r.total ?? 0),
+        y1: acc.y1 + (r.y1 ?? 0),
+        y2: acc.y2 + (r.y2 ?? 0),
+      }),
+      { total: 0, y1: 0, y2: 0 },
+    )
+}
+
+/** Table 2 on-prem: Y1 = 100% of annual baseline; Y2 = 40%; 5-yr = Y1 + Y2. */
+function splitPanel2OnpremBaselineToYears(annualBaselineUsd) {
+  const b = Math.max(0, Math.round(Number(annualBaselineUsd)) || 0)
+  const y1 = b
+  const y2 = Math.round(b * 0.4)
+  const fiveYr = y1 + y2
+  return { baseline: b, y1, y2, fiveYr }
+}
+
+function sumPanel2OnpremLineBudgets(rows) {
+  return rows
+    .filter((r) => r.t === 'l')
+    .reduce(
+      (acc, r) => ({
+        baseline: acc.baseline + (r.baseline ?? 0),
+        y1: acc.y1 + (r.y1 ?? 0),
+        y2: acc.y2 + (r.y2 ?? 0),
+        fiveYr: acc.fiveYr + (r.fiveYr ?? 0),
+      }),
+      { baseline: 0, y1: 0, y2: 0, fiveYr: 0 },
+    )
+}
+
+/**
+ * Table 3 cloud: Y1=30%, Y2=75%, Y3=stabilized; Y4=stabilized×(1+g/100);
+ * Y5=Y4×(1+g/100). `annualGrowthPct` is the same annual step (e.g. 3 → 3%).
+ */
+function splitPanel3CloudStabilizedToYears(stabilizedUsd, annualGrowthPct = 3) {
+  const s = Math.max(0, Math.round(Number(stabilizedUsd)) || 0)
+  const g = Number(annualGrowthPct)
+  const r = 1 + (Number.isFinite(g) ? g : 3) / 100
+  const y1 = Math.round(s * 0.3)
+  const y2 = Math.round(s * 0.75)
+  const y3 = s
+  const y4 = Math.round(s * r)
+  const y5 = Math.round(y4 * r)
+  const fiveYr = y1 + y2 + y3 + y4 + y5
+  return { stabilized: s, y1, y2, y3, y4, y5, fiveYr }
+}
+
+function formatPanel1OpexGrowthPctLabel(p) {
+  const n = Number(p)
+  if (!Number.isFinite(n)) return '0'
+  return n % 1 === 0 ? String(n) : n.toFixed(1)
+}
+
+function sumPanel3CloudLineBudgets(rows) {
+  return rows
+    .filter((r) => r.t === 'l')
+    .reduce(
+      (acc, r) => ({
+        stabilized: acc.stabilized + (r.stabilized ?? 0),
+        y1: acc.y1 + (r.y1 ?? 0),
+        y2: acc.y2 + (r.y2 ?? 0),
+        y3: acc.y3 + (r.y3 ?? 0),
+        y4: acc.y4 + (r.y4 ?? 0),
+        y5: acc.y5 + (r.y5 ?? 0),
+        fiveYr: acc.fiveYr + (r.fiveYr ?? 0),
+      }),
+      {
+        stabilized: 0,
+        y1: 0,
+        y2: 0,
+        y3: 0,
+        y4: 0,
+        y5: 0,
+        fiveYr: 0,
+      },
+    )
+}
+
+/**
+ * Table 1 — Capital Expenditure (CAPEX) by line item (v2 Corrected).
+ * `g` = group header, `l` = line, `total` = footer (Years 3–5 unused).
+ */
+const PANEL1_TABLE1_CAPEX_ROWS = [
+  { t: 'g', label: 'Cloud Infrastructure Setup' },
+  {
+    t: 'l',
+    line: 'Cloud Landing Zone Design & Architecture',
+    total: 180_000,
+    y1: 108_000,
+    y2: 72_000,
+  },
+  {
+    t: 'l',
+    line: 'Initial Cloud Provisioning (Compute/Storage/DB)',
+    total: 220_000,
+    y1: 132_000,
+    y2: 88_000,
+  },
+  {
+    t: 'l',
+    line: 'Multi-Region Disaster Recovery Setup',
+    total: 150_000,
+    y1: 90_000,
+    y2: 60_000,
+  },
+  {
+    t: 'l',
+    line: 'CDN & Edge Network Configuration',
+    total: 80_000,
+    y1: 48_000,
+    y2: 32_000,
+  },
+  { t: 'g', label: 'Migration Execution' },
+  {
+    t: 'l',
+    line: 'Application Assessment & Dependency Mapping',
+    total: 200_000,
+    y1: 120_000,
+    y2: 80_000,
+  },
+  {
+    t: 'l',
+    line: 'Lift-and-Shift — Core Systems (Policy/Claims/Billing)',
+    total: 350_000,
+    y1: 210_000,
+    y2: 140_000,
+  },
+  {
+    t: 'l',
+    line: 'Application Refactoring & Re-platforming',
+    total: 480_000,
+    y1: 288_000,
+    y2: 192_000,
+  },
+  {
+    t: 'l',
+    line: 'Data Migration, ETL Pipelines & Validation',
+    total: 280_000,
+    y1: 168_000,
+    y2: 112_000,
+  },
+  {
+    t: 'l',
+    line: 'Database Migration (Oracle/SQL Server → Cloud DB)',
+    total: 220_000,
+    y1: 132_000,
+    y2: 88_000,
+  },
+  {
+    t: 'l',
+    line: 'API Integration Layer & Microservices Gateway',
+    total: 160_000,
+    y1: 96_000,
+    y2: 64_000,
+  },
+  { t: 'g', label: 'Security & Compliance Infra' },
+  {
+    t: 'l',
+    line: 'Zero-Trust Architecture Implementation',
+    total: 250_000,
+    y1: 150_000,
+    y2: 100_000,
+  },
+  {
+    t: 'l',
+    line: 'SIEM & SOC Tooling Platform',
+    total: 180_000,
+    y1: 108_000,
+    y2: 72_000,
+  },
+  {
+    t: 'l',
+    line: 'Data Encryption & Key Management (HSM/KMS)',
+    total: 120_000,
+    y1: 72_000,
+    y2: 48_000,
+  },
+  {
+    t: 'l',
+    line: 'Compliance Framework Setup (SOC2/ISO27001/GDPR)',
+    total: 150_000,
+    y1: 90_000,
+    y2: 60_000,
+  },
+  {
+    t: 'l',
+    line: 'Penetration Testing & Initial Security Audit',
+    total: 90_000,
+    y1: 54_000,
+    y2: 36_000,
+  },
+  { t: 'g', label: 'AI Platform Implementation' },
+  {
+    t: 'l',
+    line: 'AI Platform Licensing & Setup',
+    total: 300_000,
+    y1: 180_000,
+    y2: 120_000,
+  },
+  {
+    t: 'l',
+    line: 'Conversational AI Chatbot Development',
+    total: 420_000,
+    y1: 252_000,
+    y2: 168_000,
+  },
+  {
+    t: 'l',
+    line: 'Agent-Assist AI Copilot Build',
+    total: 280_000,
+    y1: 168_000,
+    y2: 112_000,
+  },
+  {
+    t: 'l',
+    line: 'Knowledge Base Construction & Ingestion',
+    total: 150_000,
+    y1: 90_000,
+    y2: 60_000,
+  },
+  {
+    t: 'l',
+    line: 'Voice AI & IVR Integration',
+    total: 180_000,
+    y1: 108_000,
+    y2: 72_000,
+  },
+  {
+    t: 'l',
+    line: 'CRM–AI Workflow Integration',
+    total: 120_000,
+    y1: 72_000,
+    y2: 48_000,
+  },
+  { t: 'g', label: 'Workplace Modernization' },
+  {
+    t: 'l',
+    line: 'Endpoint Device Refresh (400 devices × $1,000)',
+    total: 400_000,
+    y1: 240_000,
+    y2: 160_000,
+  },
+  {
+    t: 'l',
+    line: 'Collaboration Platform Setup (M365/Google WS)',
+    total: 80_000,
+    y1: 48_000,
+    y2: 32_000,
+  },
+  {
+    t: 'l',
+    line: 'VPN Replacement with SASE/Zero-Trust Network Access',
+    total: 120_000,
+    y1: 72_000,
+    y2: 48_000,
+  },
+  { t: 'g', label: 'Program Management' },
+  {
+    t: 'l',
+    line: 'Cloud Migration Consulting (SI Partner)',
+    total: 350_000,
+    y1: 210_000,
+    y2: 140_000,
+  },
+  {
+    t: 'l',
+    line: 'Project Management Office (18-month program)',
+    total: 200_000,
+    y1: 120_000,
+    y2: 80_000,
+  },
+  {
+    t: 'l',
+    line: 'Change Management Consulting',
+    total: 120_000,
+    y1: 72_000,
+    y2: 48_000,
+  },
+  {
+    t: 'l',
+    line: 'Vendor Selection, RFP & Legal Contracting',
+    total: 50_000,
+    y1: 30_000,
+    y2: 20_000,
+  },
+  { t: 'g', label: 'Training & Enablement' },
+  {
+    t: 'l',
+    line: 'IT Staff Cloud Certifications (AWS/Azure/GCP × 40)',
+    total: 120_000,
+    y1: 72_000,
+    y2: 48_000,
+  },
+  {
+    t: 'l',
+    line: 'Developer Retraining (DevOps, Cloud-Native)',
+    total: 80_000,
+    y1: 48_000,
+    y2: 32_000,
+  },
+  {
+    t: 'l',
+    line: 'CS Agent AI Tools Training (120 agents × $500)',
+    total: 60_000,
+    y1: 36_000,
+    y2: 24_000,
+  },
+  {
+    t: 'l',
+    line: 'General End-User Training Program',
+    total: 40_000,
+    y1: 24_000,
+    y2: 16_000,
+  },
+  { t: 'g', label: 'Contingency (15%)' },
+  {
+    t: 'l',
+    line: 'Contingency Reserve (15% of base CAPEX $6,180,000)',
+    total: 927_000,
+    y1: 556_200,
+    y2: 370_800,
+  },
+  { t: 'total', line: 'TOTAL CAPEX' },
+]
+
+/**
+ * Table 2 — On-Premise OPEX (Baseline, Wind-Down) — v2 Corrected.
+ * 100% Y1, 40% Y2 dual-running, decommissioned Y3+.
+ */
+const PANEL1_TABLE2_ONPREM_OPEX_ROWS = [
+  { t: 'g', label: 'Hardware & Facilities' },
+  {
+    t: 'l',
+    line: 'Hardware Maintenance Contracts (Servers/Storage/Network)',
+    baseline: 1_200_000,
+    y1: 1_200_000,
+    y2: 480_000,
+    fiveYr: 1_680_000,
+  },
+  {
+    t: 'l',
+    line: 'Hardware Refresh — Amortized 5-Year Cycle',
+    baseline: 800_000,
+    y1: 800_000,
+    y2: 320_000,
+    fiveYr: 1_120_000,
+  },
+  {
+    t: 'l',
+    line: 'Data Center Colocation Lease ($80K/month)',
+    baseline: 960_000,
+    y1: 960_000,
+    y2: 384_000,
+    fiveYr: 1_344_000,
+  },
+  {
+    t: 'l',
+    line: 'Power & Cooling (Electricity, HVAC)',
+    baseline: 480_000,
+    y1: 480_000,
+    y2: 192_000,
+    fiveYr: 672_000,
+  },
+  {
+    t: 'l',
+    line: 'Physical Security (Data Center)',
+    baseline: 120_000,
+    y1: 120_000,
+    y2: 48_000,
+    fiveYr: 168_000,
+  },
+  { t: 'g', label: 'Software Licensing' },
+  {
+    t: 'l',
+    line: 'OS & Database Licenses (Windows Server, Oracle, SQL Server)',
+    baseline: 650_000,
+    y1: 650_000,
+    y2: 260_000,
+    fiveYr: 910_000,
+  },
+  {
+    t: 'l',
+    line: 'Middleware & Integration Tools (MQ, ESB)',
+    baseline: 280_000,
+    y1: 280_000,
+    y2: 112_000,
+    fiveYr: 392_000,
+  },
+  {
+    t: 'l',
+    line: 'Monitoring & Management Tools (Nagios, Splunk On-Prem)',
+    baseline: 150_000,
+    y1: 150_000,
+    y2: 60_000,
+    fiveYr: 210_000,
+  },
+  {
+    t: 'l',
+    line: 'Security Software (AV, Firewall, IDS/IPS Licenses)',
+    baseline: 320_000,
+    y1: 320_000,
+    y2: 128_000,
+    fiveYr: 448_000,
+  },
+  { t: 'g', label: 'IT Personnel' },
+  {
+    t: 'l',
+    line: 'Infrastructure Engineers — 12 FTE × $120K',
+    baseline: 1_440_000,
+    y1: 1_440_000,
+    y2: 576_000,
+    fiveYr: 2_016_000,
+  },
+  {
+    t: 'l',
+    line: 'Database Administrators — 5 FTE × $120K',
+    baseline: 600_000,
+    y1: 600_000,
+    y2: 240_000,
+    fiveYr: 840_000,
+  },
+  {
+    t: 'l',
+    line: 'Network Engineers — 4 FTE × $120K',
+    baseline: 480_000,
+    y1: 480_000,
+    y2: 192_000,
+    fiveYr: 672_000,
+  },
+  {
+    t: 'l',
+    line: 'Security Operations — 5 FTE × $120K',
+    baseline: 600_000,
+    y1: 600_000,
+    y2: 240_000,
+    fiveYr: 840_000,
+  },
+  {
+    t: 'l',
+    line: 'Helpdesk Support — 8 FTE × $90K',
+    baseline: 720_000,
+    y1: 720_000,
+    y2: 288_000,
+    fiveYr: 1_008_000,
+  },
+  { t: 'g', label: 'Customer Service' },
+  {
+    t: 'l',
+    line: 'CS Agent Salaries & Benefits — 120 agents × $60K',
+    baseline: 7_200_000,
+    y1: 7_200_000,
+    y2: 2_880_000,
+    fiveYr: 10_080_000,
+  },
+  {
+    t: 'l',
+    line: 'Telephony & IVR (PBX, Telecom)',
+    baseline: 360_000,
+    y1: 360_000,
+    y2: 144_000,
+    fiveYr: 504_000,
+  },
+  {
+    t: 'l',
+    line: 'Workforce Management Software',
+    baseline: 120_000,
+    y1: 120_000,
+    y2: 48_000,
+    fiveYr: 168_000,
+  },
+  {
+    t: 'l',
+    line: 'Quality Assurance Team & Tools',
+    baseline: 180_000,
+    y1: 180_000,
+    y2: 72_000,
+    fiveYr: 252_000,
+  },
+  { t: 'g', label: 'Risk & Compliance' },
+  {
+    t: 'l',
+    line: 'Compliance Audit Costs (Annual Audits & Certifications)',
+    baseline: 400_000,
+    y1: 400_000,
+    y2: 160_000,
+    fiveYr: 560_000,
+  },
+  {
+    t: 'l',
+    line: 'Cyber Liability Insurance Premium',
+    baseline: 850_000,
+    y1: 850_000,
+    y2: 340_000,
+    fiveYr: 1_190_000,
+  },
+  {
+    t: 'l',
+    line: 'Regulatory Reporting — Manual Effort',
+    baseline: 250_000,
+    y1: 250_000,
+    y2: 100_000,
+    fiveYr: 350_000,
+  },
+  {
+    t: 'l',
+    line: 'Expected Data Breach Cost (18% prob × $6.58M avg)',
+    baseline: 1_184_400,
+    y1: 1_184_400,
+    y2: 473_760,
+    fiveYr: 1_658_160,
+  },
+  { t: 'g', label: 'Backup & Recovery' },
+  {
+    t: 'l',
+    line: 'Tape Backup & Offsite Storage',
+    baseline: 180_000,
+    y1: 180_000,
+    y2: 72_000,
+    fiveYr: 252_000,
+  },
+  {
+    t: 'l',
+    line: 'Secondary DR Site Maintenance',
+    baseline: 240_000,
+    y1: 240_000,
+    y2: 96_000,
+    fiveYr: 336_000,
+  },
+  { t: 'g', label: 'Overhead & Misc' },
+  {
+    t: 'l',
+    line: 'Vendor Support Contracts',
+    baseline: 300_000,
+    y1: 300_000,
+    y2: 120_000,
+    fiveYr: 420_000,
+  },
+  {
+    t: 'l',
+    line: 'IT Management Overhead & Administration',
+    baseline: 200_000,
+    y1: 200_000,
+    y2: 80_000,
+    fiveYr: 280_000,
+  },
+  { t: 'total', line: 'TOTAL ON-PREM OPEX' },
+]
+
+/**
+ * Table 3 — Cloud + AI OPEX (New Cost Structure) — v2 Corrected.
+ * Ramp 30% / 75% / 100%; Y4 +3%; Y5 vs Y3 per model.
+ */
+const PANEL1_TABLE3_CLOUD_AI_OPEX_ROWS = [
+  { t: 'g', label: 'Cloud Infrastructure (IaaS/PaaS)' },
+  {
+    t: 'l',
+    line: 'Cloud Compute — Reserved Instances (EC2/Azure VM)',
+    stabilized: 900_000,
+    y1: 270_000,
+    y2: 675_000,
+    y3: 900_000,
+    y4: 927_000,
+    y5: 954_810,
+    fiveYr: 3_726_810,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Storage & Backup (S3/Blob + Backup)',
+    stabilized: 240_000,
+    y1: 72_000,
+    y2: 180_000,
+    y3: 240_000,
+    y4: 247_200,
+    y5: 254_616,
+    fiveYr: 993_816,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Database Services (RDS, Cosmos, Managed DB)',
+    stabilized: 360_000,
+    y1: 108_000,
+    y2: 270_000,
+    y3: 360_000,
+    y4: 370_800,
+    y5: 381_924,
+    fiveYr: 1_490_724,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Networking & CDN (VPN, Load Balancer, CDN)',
+    stabilized: 180_000,
+    y1: 54_000,
+    y2: 135_000,
+    y3: 180_000,
+    y4: 185_400,
+    y5: 190_962,
+    fiveYr: 745_362,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Security Services (WAF, Shield, GuardDuty)',
+    stabilized: 200_000,
+    y1: 60_000,
+    y2: 150_000,
+    y3: 200_000,
+    y4: 206_000,
+    y5: 212_180,
+    fiveYr: 828_180,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Monitoring & Observability (Datadog, CW)',
+    stabilized: 120_000,
+    y1: 36_000,
+    y2: 90_000,
+    y3: 120_000,
+    y4: 123_600,
+    y5: 127_308,
+    fiveYr: 496_908,
+  },
+  { t: 'g', label: 'SaaS & Platform Licenses' },
+  {
+    t: 'l',
+    line: 'Core Insurance Platform SaaS (Policy/Claims/Billing)',
+    stabilized: 1_200_000,
+    y1: 360_000,
+    y2: 900_000,
+    y3: 1_200_000,
+    y4: 1_236_000,
+    y5: 1_273_080,
+    fiveYr: 4_969_080,
+  },
+  {
+    t: 'l',
+    line: 'Collaboration Suite — M365 E3 ($30/user × 1,000)',
+    stabilized: 360_000,
+    y1: 108_000,
+    y2: 270_000,
+    y3: 360_000,
+    y4: 370_800,
+    y5: 381_924,
+    fiveYr: 1_490_724,
+  },
+  {
+    t: 'l',
+    line: 'CRM Platform SaaS (Salesforce/ServiceNow)',
+    stabilized: 180_000,
+    y1: 54_000,
+    y2: 135_000,
+    y3: 180_000,
+    y4: 185_400,
+    y5: 190_962,
+    fiveYr: 745_362,
+  },
+  {
+    t: 'l',
+    line: 'DevOps & CI/CD Tools (GitHub, Jira)',
+    stabilized: 80_000,
+    y1: 24_000,
+    y2: 60_000,
+    y3: 80_000,
+    y4: 82_400,
+    y5: 84_872,
+    fiveYr: 331_272,
+  },
+  {
+    t: 'l',
+    line: 'Security SaaS (CASB, SIEM-as-a-Service, EDR)',
+    stabilized: 240_000,
+    y1: 72_000,
+    y2: 180_000,
+    y3: 240_000,
+    y4: 247_200,
+    y5: 254_616,
+    fiveYr: 993_816,
+  },
+  { t: 'g', label: 'AI Platform & Services' },
+  {
+    t: 'l',
+    line: 'LLM API Consumption (GPT/Claude/Gemini)',
+    stabilized: 480_000,
+    y1: 144_000,
+    y2: 360_000,
+    y3: 480_000,
+    y4: 494_400,
+    y5: 509_232,
+    fiveYr: 1_987_632,
+  },
+  {
+    t: 'l',
+    line: 'AI Platform Annual Subscription',
+    stabilized: 300_000,
+    y1: 90_000,
+    y2: 225_000,
+    y3: 300_000,
+    y4: 309_000,
+    y5: 318_270,
+    fiveYr: 1_242_270,
+  },
+  {
+    t: 'l',
+    line: 'AI Model Maintenance & Fine-Tuning',
+    stabilized: 150_000,
+    y1: 45_000,
+    y2: 112_500,
+    y3: 150_000,
+    y4: 154_500,
+    y5: 159_135,
+    fiveYr: 621_135,
+  },
+  {
+    t: 'l',
+    line: 'AI Chatbot Hosting & Infrastructure',
+    stabilized: 120_000,
+    y1: 36_000,
+    y2: 90_000,
+    y3: 120_000,
+    y4: 123_600,
+    y5: 127_308,
+    fiveYr: 496_908,
+  },
+  { t: 'g', label: 'IT Personnel (Cloud-Optimized)' },
+  {
+    t: 'l',
+    line: 'Cloud & DevOps Engineers — 8 FTE × $150K',
+    stabilized: 1_200_000,
+    y1: 360_000,
+    y2: 900_000,
+    y3: 1_200_000,
+    y4: 1_236_000,
+    y5: 1_273_080,
+    fiveYr: 4_969_080,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Security Engineers — 3 FTE × $160K',
+    stabilized: 480_000,
+    y1: 144_000,
+    y2: 360_000,
+    y3: 480_000,
+    y4: 494_400,
+    y5: 509_232,
+    fiveYr: 1_987_632,
+  },
+  {
+    t: 'l',
+    line: 'Data Engineers & MLOps — 4 FTE × $150K',
+    stabilized: 600_000,
+    y1: 180_000,
+    y2: 450_000,
+    y3: 600_000,
+    y4: 618_000,
+    y5: 636_540,
+    fiveYr: 2_484_540,
+  },
+  {
+    t: 'l',
+    line: 'Helpdesk Support (Reduced) — 5 FTE × $90K',
+    stabilized: 450_000,
+    y1: 135_000,
+    y2: 337_500,
+    y3: 450_000,
+    y4: 463_500,
+    y5: 477_405,
+    fiveYr: 1_863_405,
+  },
+  { t: 'g', label: 'Customer Service (AI-Augmented)' },
+  {
+    t: 'l',
+    line: 'CS Agent Salaries (Reduced) — 60 agents × $60K',
+    stabilized: 3_600_000,
+    y1: 1_080_000,
+    y2: 2_700_000,
+    y3: 3_600_000,
+    y4: 3_708_000,
+    y5: 3_819_240,
+    fiveYr: 14_907_240,
+  },
+  {
+    t: 'l',
+    line: 'AI Contact Handling Cost (65% of 1.8M × $0.69 net)',
+    stabilized: 810_000,
+    y1: 243_000,
+    y2: 607_500,
+    y3: 810_000,
+    y4: 834_300,
+    y5: 859_329,
+    fiveYr: 3_354_129,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Telephony (CCaaS)',
+    stabilized: 120_000,
+    y1: 36_000,
+    y2: 90_000,
+    y3: 120_000,
+    y4: 123_600,
+    y5: 127_308,
+    fiveYr: 496_908,
+  },
+  {
+    t: 'l',
+    line: 'AI-Powered Quality Analytics',
+    stabilized: 80_000,
+    y1: 24_000,
+    y2: 60_000,
+    y3: 80_000,
+    y4: 82_400,
+    y5: 84_872,
+    fiveYr: 331_272,
+  },
+  { t: 'g', label: 'Risk & Compliance' },
+  {
+    t: 'l',
+    line: 'Compliance Automation Tools (GRC Platform)',
+    stabilized: 200_000,
+    y1: 60_000,
+    y2: 150_000,
+    y3: 200_000,
+    y4: 206_000,
+    y5: 212_180,
+    fiveYr: 828_180,
+  },
+  {
+    t: 'l',
+    line: 'Cyber Liability Insurance (Reduced Premium)',
+    stabilized: 500_000,
+    y1: 150_000,
+    y2: 375_000,
+    y3: 500_000,
+    y4: 515_000,
+    y5: 530_450,
+    fiveYr: 2_070_450,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Compliance Certifications (SOC2/ISO27001)',
+    stabilized: 150_000,
+    y1: 45_000,
+    y2: 112_500,
+    y3: 150_000,
+    y4: 154_500,
+    y5: 159_135,
+    fiveYr: 621_135,
+  },
+  {
+    t: 'l',
+    line: 'Expected Data Breach Cost (4% prob × $6.58M)',
+    stabilized: 263_200,
+    y1: 78_960,
+    y2: 197_400,
+    y3: 263_200,
+    y4: 271_096,
+    y5: 279_229,
+    fiveYr: 1_089_885,
+  },
+  { t: 'g', label: 'Managed Services & Overhead' },
+  {
+    t: 'l',
+    line: 'Cloud Managed Services (MSP for Cloud Ops)',
+    stabilized: 360_000,
+    y1: 108_000,
+    y2: 270_000,
+    y3: 360_000,
+    y4: 370_800,
+    y5: 381_924,
+    fiveYr: 1_490_724,
+  },
+  {
+    t: 'l',
+    line: 'Cloud Vendor Enterprise Support',
+    stabilized: 150_000,
+    y1: 45_000,
+    y2: 112_500,
+    y3: 150_000,
+    y4: 154_500,
+    y5: 159_135,
+    fiveYr: 621_135,
+  },
+  {
+    t: 'l',
+    line: 'IT Management Overhead & Administration',
+    stabilized: 150_000,
+    y1: 45_000,
+    y2: 112_500,
+    y3: 150_000,
+    y4: 154_500,
+    y5: 159_135,
+    fiveYr: 621_135,
+  },
+  { t: 'total', line: 'TOTAL CLOUD OPEX' },
+]
+
 /** Minimal inline icons for sidebar (Acme-style nav). */
 function IconHome({ className }) {
   return (
@@ -107,12 +1048,6 @@ function IconDiffusion({ className }) {
 function parseMoney(s) {
   if (s === '' || s === null || s === undefined) return 0
   const n = Number(String(s).replace(/,/g, '').trim())
-  return Number.isFinite(n) ? n : 0
-}
-
-function parsePercent(s) {
-  if (s === '' || s === null || s === undefined) return 0
-  const n = Number(String(s).trim())
   return Number.isFinite(n) ? n : 0
 }
 
@@ -525,43 +1460,57 @@ function RoiBreakevenChart({ curvePoints, breakeven }) {
   )
 }
 
-function GrowthChart({ rows, maxSeries }) {
+/**
+ * Panel 1 — Cost by year: per fiscal year, baseline on-prem bar + migration total
+ * as a stacked bar (CAPEX bottom, combined OPEX top).
+ */
+function Panel1CostByYearChart({ rows, baselineOnPremByYear }) {
   const w = 640
-  const h = 300
-  const padL = 56
+  const h = 320
+  const padL = 58
   const padR = 24
   const padT = 28
-  const padB = 52
+  const padB = 56
   const innerW = w - padL - padR
   const innerH = h - padT - padB
-  const maxY = Math.max(1, maxSeries)
+
+  const maxY = Math.max(
+    1,
+    ...baselineOnPremByYear,
+    ...rows.map((r) => r.totalCost),
+  )
+
   const groupW = innerW / rows.length
-  const barW = groupW * 0.2
-  const gap = groupW * 0.06
-  const x0 =
-    (_i) => padL + _i * groupW + groupW / 2 - (3 * barW + 2 * gap) / 2
+  /** Space between year clusters (applied on both sides of each year’s pair). */
+  const clusterSidePad = Math.max(10, groupW * 0.12)
+  /** Tight gap between baseline bar and stacked bar for the same year. */
+  const intraYearGap = Math.min(6, Math.max(2, groupW * 0.028))
+  const usablePairW = Math.max(1, groupW - 2 * clusterSidePad)
+  const barW = Math.max(8, (usablePairW - intraYearGap) / 2)
+
+  const yBaseline = padT + innerH
 
   return (
     <svg
-      className="cost-chart"
+      className="cost-chart panel1-cost-chart"
       viewBox={`0 0 ${w} ${h}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label="Cost by year: OpEx, CapEx, and total"
+      aria-label="Cost by year: baseline on-prem OPEX versus migration CAPEX plus combined OPEX"
     >
-      <title>Annual cost breakdown by year</title>
+      <title>Annual cost — baseline versus migration stacked total</title>
       <defs>
-        <linearGradient id="gradientOpex" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#14b8a6" />
-          <stop offset="100%" stopColor="#0f766e" />
+        <linearGradient id="panel1GradientBaselinePrem" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#1e40af" />
         </linearGradient>
-        <linearGradient id="gradientCapex" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="panel1GradientCapexBar" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#fb923c" />
           <stop offset="100%" stopColor="#c2410c" />
         </linearGradient>
-        <linearGradient id="gradientTotal" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#1e40af" />
+        <linearGradient id="panel1GradientOpexCombinedBar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#93c5fd" />
+          <stop offset="100%" stopColor="#60a5fa" />
         </linearGradient>
       </defs>
       {[0, 0.25, 0.5, 0.75, 1].map((t) => {
@@ -576,12 +1525,7 @@ function GrowthChart({ rows, maxSeries }) {
               y2={y}
               className="chart-grid-line"
             />
-            <text
-              x={padL - 8}
-              y={y + 4}
-              textAnchor="end"
-              className="chart-axis-label"
-            >
+            <text x={padL - 8} y={y + 4} textAnchor="end" className="chart-axis-label">
               {tick >= 1_000_000
                 ? `${(tick / 1_000_000).toFixed(1)}M`
                 : tick >= 1000
@@ -592,33 +1536,49 @@ function GrowthChart({ rows, maxSeries }) {
         )
       })}
       {rows.map((row, i) => {
-        const cx = x0(i)
-        const bx = [cx - barW - gap, cx, cx + barW + gap]
-        const vals = [
-          { v: row.opex, fill: 'url(#gradientOpex)' },
-          { v: row.capex, fill: 'url(#gradientCapex)' },
-          { v: row.totalCost, fill: 'url(#gradientTotal)' },
-        ]
+        const groupLeft = padL + i * groupW
+        const pairLeft = groupLeft + clusterSidePad
+        const xBaseline = pairLeft
+        const xStack = pairLeft + barW + intraYearGap
+        const groupCx = groupLeft + groupW / 2
+        const baselineVal = baselineOnPremByYear[i] ?? 0
+        const hhBase = innerH * (baselineVal / maxY)
+        const hhCap = innerH * (row.capex / maxY)
+        const hhOp = innerH * (row.opex / maxY)
+        const yCapTop = yBaseline - hhCap
+        const yOpTop = yCapTop - hhOp
         return (
           <g key={row.year}>
-            {vals.map((item, bi) => {
-              const hh = innerH * (item.v / maxY)
-              return (
-                <rect
-                  key={bi}
-                  x={bx[bi]}
-                  y={padT + innerH - hh}
-                  width={barW}
-                  height={Math.max(0, hh)}
-                  rx={2}
-                  className="chart-bar"
-                  fill={item.fill}
-                />
-              )
-            })}
+            <rect
+              x={xBaseline}
+              y={yBaseline - hhBase}
+              width={barW}
+              height={Math.max(0, hhBase)}
+              rx={3}
+              className="chart-bar panel1-chart-bar-baseline"
+              fill="url(#panel1GradientBaselinePrem)"
+            />
+            <rect
+              x={xStack}
+              y={yCapTop}
+              width={barW}
+              height={Math.max(0, hhCap)}
+              rx={3}
+              className="chart-bar panel1-chart-bar-capex"
+              fill="url(#panel1GradientCapexBar)"
+            />
+            <rect
+              x={xStack}
+              y={yOpTop}
+              width={barW}
+              height={Math.max(0, hhOp)}
+              rx={3}
+              className="chart-bar panel1-chart-bar-opex"
+              fill="url(#panel1GradientOpexCombinedBar)"
+            />
             <text
-              x={cx}
-              y={h - padB + 42}
+              x={groupCx}
+              y={h - 8}
               textAnchor="middle"
               className="chart-axis-label chart-axis-year"
             >
@@ -656,8 +1616,8 @@ function LandingHome({ visible }) {
           </p>
         </div>
         <p className="landing-hint-soft">
-          Open <strong>Budget Planning and Cost Estimation</strong> from the
-          sidebar when you&apos;re ready to work the numbers.
+          Open <strong>Panel 1: Cost Estimation</strong> from the sidebar when
+          you&apos;re ready to work the numbers.
         </p>
       </div>
     </div>
@@ -2369,473 +3329,49 @@ function Panel9Diffusion({
   )
 }
 
-function RoiValuePanel() {
+function RoiValuePanel({
+  redundancy,
+  multiRegion,
+  p6Uptime,
+  suggestedOpexPerYear,
+  suggestedDowntimeSavings,
+  suggestedProductivitySavings,
+  automationPct,
+  p5FailureRate,
+  setOpexByYear,
+  setAnnualDowntimeSavings,
+  setAnnualProductivitySavings,
+  annualDowntimeSavings,
+  annualProductivitySavings,
+  annualDataCenterAvoided,
+  setAnnualDataCenterAvoided,
+  totalOpex5,
+  totalCapex5,
+  totalCost5,
+  totalBenefits5,
+  roiPct,
+  roiCurve,
+  breakevenPoint,
+  breakevenExplanation,
+}) {
   return (
     <main className="migration-panel">
       <header className="panel-header panel-header-context">
         <p className="migration-eyebrow">Cloud migration simulator</p>
         <p className="panel-title-context">ROI &amp; value drivers</p>
         <p className="panel-subtitle">
-          Extend the budget model with deeper return-on-investment and business
-          value narratives for leadership review.
+          Simulator-driven benefit hints, recurring savings assumptions,
+          five-year totals, and break-even visualization—aligned with your
+          Budget Planning cost model.
         </p>
       </header>
-      <section className="panel-card" aria-labelledby="roi-panel-placeholder-heading">
-        <h2 id="roi-panel-placeholder-heading" className="card-heading">
-          Panel 2 (placeholder)
-        </h2>
-        <p className="card-lead">
-          This workspace will host ROI and value analysis—scenario comparison,
-          sensitivity views, and executive-ready summaries tied to the figures
-          from Budget Planning and Cost Estimation.
-        </p>
-      </section>
-    </main>
-  )
-}
-
-function App() {
-  const [activeView, setActiveView] = useState('home')
-  // Panel 5 & 6 state lifted to App for cross-panel data flow
-  const [automationPct, setAutomationPct] = useState(50)
-  const [teamSize, setTeamSize] = useState(10)
-  const [redundancy, setRedundancy] = useState(3)
-  const [multiRegion, setMultiRegion] = useState(false)
-  const [trainingHours, setTrainingHours] = useState(20)
-  const [leadershipEngagement, setLeadershipEngagement] = useState(50)
-  const [marketingSpend, setMarketingSpend] = useState(5)
-  const [networkEffect, setNetworkEffect] = useState(0.3)
-  const [marketType, setMarketType] = useState('B2C')
-
-  const [opexByYear, setOpexByYear] = useState([
-    '250000',
-    '275000',
-    '300000',
-    '325000',
-    '350000',
-  ])
-  const [capexByYear, setCapexByYear] = useState([
-    '600000',
-    '250000',
-    '150000',
-    '75000',
-    '50000',
-  ])
-  const [annualOpexChangePct, setAnnualOpexChangePct] = useState('')
-  const [annualCapexChangePct, setAnnualCapexChangePct] = useState('')
-  const [annualDowntimeSavings, setAnnualDowntimeSavings] = useState('300000')
-  const [annualProductivitySavings, setAnnualProductivitySavings] =
-    useState('200000')
-  const [annualDataCenterAvoided, setAnnualDataCenterAvoided] =
-    useState('250000')
-
-  const [aiFraudInvestment, setAiFraudInvestment] = useState(80000)
-  const [aiCxInvestment, setAiCxInvestment] = useState(80000)
-  const [aiDataMiningInvestment, setAiDataMiningInvestment] = useState(80000)
-  const [dataAvailability, setDataAvailability] = useState(70)
-  const [dataReliability, setDataReliability] = useState(70)
-
-  const rows = useMemo(() => {
-    const numericOpex = opexByYear.map(parseMoney)
-    const numericCapex = capexByYear.map(parseMoney)
-    return YEARS.reduce(
-      (acc, y, idx) => {
-        const opex = numericOpex[idx]
-        const capex = numericCapex[idx]
-        const totalCost = opex + capex
-        const cumulativeCost = acc.cumulative + totalCost
-        return {
-          cumulative: cumulativeCost,
-          rows: [
-            ...acc.rows,
-            {
-              year: y,
-              opex,
-              capex,
-              totalCost,
-              cumulativeCost,
-            },
-          ],
-        }
-      },
-      { cumulative: 0, rows: [] },
-    ).rows
-  }, [opexByYear, capexByYear])
-
-  const totalOpex5 = rows.reduce((acc, r) => acc + r.opex, 0)
-  const totalCapex5 = rows.reduce((acc, r) => acc + r.capex, 0)
-  const totalCost5 = totalOpex5 + totalCapex5
-
-  const annualBenefits =
-    parseMoney(annualDowntimeSavings) +
-    parseMoney(annualProductivitySavings) +
-    parseMoney(annualDataCenterAvoided)
-  const totalBenefits5 = annualBenefits * 5
-
-  const roiPct =
-    totalCost5 === 0
-      ? null
-      : ((totalBenefits5 - totalCost5) / totalCost5) * 100
-
-  const chartMaxSeries = rows.reduce((m, r) => {
-    return Math.max(m, r.opex, r.capex, r.totalCost)
-  }, 0)
-
-  const roiCurve = useMemo(
-    () => buildRoiCurve(rows, annualBenefits),
-    [rows, annualBenefits],
-  )
-
-  const breakevenPoint = useMemo(() => {
-    if (annualBenefits <= 0) return null
-    return findRoiBreakeven(roiCurve)
-  }, [roiCurve, annualBenefits])
-
-  const breakevenExplanation = useMemo(() => {
-    if (annualBenefits <= 0) {
-      return {
-        headline: null,
-        body: 'Enter positive annual benefits to chart when cumulative value catches cumulative investment.',
-      }
-    }
-    if (breakevenPoint) {
-      return {
-        headline: `${breakevenPoint.tStar.toFixed(2)} years from program start`,
-        body: `The two cumulative curves intersect at about ${formatCurrency(breakevenPoint.amount)}. Interpolation is linear between year-end balances (start at $0 / $0, then each fiscal year-end).`,
-      }
-    }
-    const last = roiCurve[roiCurve.length - 1]
-    const lastGap = last.cumulativeBenefit - last.cumulativeCost
-    const alwaysAhead = roiCurve.every(
-      (p) => p.t === 0 || p.cumulativeBenefit - p.cumulativeCost >= -1,
-    )
-    if (alwaysAhead && lastGap >= -1) {
-      return {
-        headline: 'No separate recovery crossing',
-        body: 'Benefits meet or exceed costs at every year-end on this path—there is no underwater period to recover from.',
-      }
-    }
-    return {
-      headline: 'Not within five years',
-      body: 'Cumulative costs remain ahead through Year 5 on this model. Raise annual benefits or lower spend to pull break-even left.',
-    }
-  }, [annualBenefits, breakevenPoint, roiCurve])
-
-  function handleOpexChange(index, raw) {
-    setOpexByYear((prev) => {
-      const next = [...prev]
-      next[index] = raw
-      return next
-    })
-  }
-
-  function handleCapexChange(index, raw) {
-    setCapexByYear((prev) => {
-      const next = [...prev]
-      next[index] = raw
-      return next
-    })
-  }
-
-  function applyAnnualPercentages() {
-    const rO = parsePercent(annualOpexChangePct) / 100
-    const rC = parsePercent(annualCapexChangePct) / 100
-    const baseO = parseMoney(opexByYear[0])
-    const baseC = parseMoney(capexByYear[0])
-    setOpexByYear(
-      YEARS.map((_, i) =>
-        String(Math.round(i === 0 ? baseO : baseO * (1 + rO) ** i))
-      )
-    )
-    setCapexByYear(
-      YEARS.map((_, i) =>
-        String(Math.round(i === 0 ? baseC : baseC * (1 + rC) ** i))
-      )
-    )
-  }
-
-  // ── Cross-panel derived values ─────────────────────────────────
-  const _uptimeBase = [95.0, 99.0, 99.5, 99.95, 99.99, 99.999]
-  const _uptimeDelta = [0, 0.5, 0.3, 0.04, 0.009, 0.0009]
-  const _p6UptimeSingle = _uptimeBase[redundancy - 1]
-  const _p6UptimeMulti = Math.min(99.999, _p6UptimeSingle + _uptimeDelta[redundancy - 1])
-  const p6Uptime = multiRegion ? _p6UptimeMulti : _p6UptimeSingle
-  const p6RegionMult = multiRegion ? 1.85 : 1
-  const p6MonthlyCost = Math.round(5000 * Math.pow(redundancy, 1.7) * p6RegionMult)
-  const p6DowntimeHrs = Math.round(((100 - p6Uptime) / 100) * 8760 * 10) / 10
-
-  const _p5BaseFailure = 25
-  const _p5FailureReduction = automationPct >= 70
-    ? 0.4 + ((automationPct - 70) / 30) * 0.2
-    : (automationPct / 70) * 0.4
-  const p5FailureRate = Math.round(Math.max(3, _p5BaseFailure * (1 - _p5FailureReduction)) * 10) / 10
-  const _p5BaseFreq = (teamSize / 5) * 2
-  const _p5AutoFactor = automationPct >= 70
-    ? 1.5 + ((automationPct - 70) / 30) * 0.4
-    : 0.6 + (automationPct / 70) * 0.4
-  const p5DeployFreq = Math.round(_p5BaseFreq * _p5AutoFactor * 10) / 10
-
-  const suggestedOpexPerYear = p6MonthlyCost * 12
-  const _p6BaselineDowntimeHrs = ((100 - 95.0) / 100) * 8760
-  const suggestedDowntimeSavings = Math.round(Math.max(0, (_p6BaselineDowntimeHrs - p6DowntimeHrs) * 20000) / 1000) * 1000
-  const _p5AvoidsPerYear = Math.round(((_p5BaseFailure - p5FailureRate) / 100) * p5DeployFreq * 52)
-  const suggestedProductivitySavings = Math.round(_p5AvoidsPerYear * 2500 / 1000) * 1000
-
-  const isHome = activeView === 'home'
-  const isBudget = activeView === 'budget'
-  const isRoi = activeView === 'roi'
-  const isSensitivity = activeView === 'sensitivity'
-  const isPanels = activeView === 'panels'
-  const isAdoption = activeView === 'adoption'
-  const isDiffusion = activeView === 'diffusion'
-  const topHeaderTitle =
-    activeView === 'home'
-      ? 'Technology Benefit Simulator'
-      : activeView === 'budget'
-        ? 'Budget Planning and Cost Estimation'
-        : activeView === 'panels'
-          ? 'Governance, CI/CD & Uptime Simulators'
-          : activeView === 'sensitivity'
-            ? 'Panel 7: ROI Sensitivity Explorer'
-            : activeView === 'adoption'
-              ? 'Panel 8: Adoption Curve'
-              : activeView === 'diffusion'
-                ? 'Panel 9: Diffusion Simulator'
-                : 'ROI and Value Analysis'
-
-  return (
-    <div className="app-shell">
-      <aside className="sidebar" aria-label="Primary navigation">
-        <div className="sidebar-stack">
-          <div className="sidebar-brand-row">
-            <button
-              type="button"
-              className="sidebar-brand-hit"
-              onClick={() => setActiveView('home')}
-              aria-label="Benefit Simulator home"
-            >
-              <span className="sidebar-logo-mark" aria-hidden />
-              <span className="sidebar-brand-text">Benefit Simulator</span>
-            </button>
-          </div>
-
-          <nav className="sidebar-nav" aria-label="Panels">
-            <p className="sidebar-nav-caption">Workspace</p>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isHome ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('home')}
-            >
-              <IconHome className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">Overview</span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isBudget ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('budget')}
-            >
-              <IconBudget className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                Budget Planning and Cost Estimation
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isRoi ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('roi')}
-            >
-              <IconRoiValue className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                ROI and Value Analysis
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isPanels ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('panels')}
-            >
-              <IconPanels className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                Governance, CI/CD &amp; Uptime
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isSensitivity ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('sensitivity')}
-            >
-              <IconRoiSensitivity className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                Panel 7: ROI Sensitivity Explorer
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isAdoption ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('adoption')}
-            >
-              <IconAdoption className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                Panel 8: Adoption Curve
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`sidebar-nav-item${isDiffusion ? ' sidebar-nav-item-active' : ''}`}
-              onClick={() => setActiveView('diffusion')}
-            >
-              <IconDiffusion className="sidebar-nav-svg" />
-              <span className="sidebar-nav-label">
-                Panel 9: Diffusion Simulator
-              </span>
-            </button>
-          </nav>
-        </div>
-
-        <div className="sidebar-footer">
-          <p className="sidebar-footer-caption">Support</p>
-          <button type="button" className="sidebar-footer-link sidebar-footer-link-soft">
-            <IconHelp />
-            Help Center
-          </button>
-          <button type="button" className="sidebar-footer-link sidebar-footer-link-soft">
-            Feedback
-          </button>
-          <div className="sidebar-profile">
-            <div className="sidebar-profile-avatar" aria-hidden>
-              CL
-            </div>
-            <div className="sidebar-profile-meta">
-              <span className="sidebar-profile-name">Claims Lead</span>
-              <span className="sidebar-profile-email">
-                casualty.claims@yourorg.com
-              </span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <div className="app-stage">
-        <AppTopHeader
-          showBack={!isHome}
-          title={topHeaderTitle}
-          onBackToHome={() => setActiveView('home')}
-        />
-        <div className="app-scroll">
-          <LandingHome visible={isHome} />
-
-        <div
-          className="budget-route"
-          id="budget-route"
-          hidden={!isBudget}
-          aria-hidden={!isBudget}
-          style={{ display: isBudget ? 'block' : 'none' }}
-        >
-    <main className="migration-panel">
-      <header className="panel-header panel-header-context">
-        <p className="migration-eyebrow">Cloud migration simulator</p>
-        <p className="panel-title-context">
-          Budget &amp; Cashflow
-        </p>
-        <p className="panel-subtitle">
-          Casualty medical claims processing: estimate OpEx, CapEx, and Cash
-          Flow for migration from legacy data centers to AWS.
-        </p>
-      </header>
-
-      <section className="panel-card" aria-labelledby="inputs-heading">
-        <h2 id="inputs-heading" className="card-heading">
-          Yearly OpEx &amp; CapEx
-        </h2>
-        <p className="card-lead">
-          Enter planned operating and capital spend for each fiscal year (USD).
-        </p>
-        <div className="year-inputs-table-wrap">
-          <table className="year-inputs-table">
-            <thead>
-              <tr>
-                <th scope="col">Year</th>
-                <th scope="col">OpEx ($)</th>
-                <th scope="col">CapEx ($)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {YEARS.map((y, i) => (
-                <tr key={y}>
-                  <th scope="row">{y}</th>
-                  <td>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="field field-money"
-                      value={opexByYear[i]}
-                      onChange={(e) => handleOpexChange(i, e.target.value)}
-                      aria-label={`Year ${y} OpEx in dollars`}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="field field-money"
-                      value={capexByYear[i]}
-                      onChange={(e) => handleCapexChange(i, e.target.value)}
-                      aria-label={`Year ${y} CapEx in dollars`}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="pct-heading">
-        <h2 id="pct-heading" className="card-heading">
-          Optional annual change (%)
-        </h2>
-        <p className="card-lead">
-          Compound percentage growth applied from Year 1 through Year 5.
-          Replaces Years 2–5 when you apply; edit Year 1 first if needed.
-        </p>
-        <div className="pct-row">
-          <label className="field-label">
-            <span>Annual OpEx change (%)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-pct"
-              value={annualOpexChangePct}
-              onChange={(e) => setAnnualOpexChangePct(e.target.value)}
-              placeholder="e.g. 5"
-            />
-          </label>
-          <label className="field-label">
-            <span>Annual CapEx change (%)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              className="field field-pct"
-              value={annualCapexChangePct}
-              onChange={(e) => setAnnualCapexChangePct(e.target.value)}
-              placeholder="e.g. -10"
-            />
-          </label>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={applyAnnualPercentages}
-          >
-            Apply to Years 2–5
-          </button>
-        </div>
-      </section>
 
       <section className="panel-card sim-suggestions-card" aria-labelledby="sim-suggestions-heading">
         <h2 id="sim-suggestions-heading" className="card-heading">Simulator suggestions</h2>
         <p className="card-lead">
           Live values derived from your <strong>CI/CD</strong> and <strong>Uptime</strong> simulator
-          settings. Click <strong>Apply</strong> to copy a value into the ROI assumptions below.
+          settings. Click <strong>Apply</strong> to copy a value into{' '}
+          <strong>ROI assumptions</strong> on this panel (or overwrite Year 1–5 OpEx).
         </p>
         <div className="sim-suggestions-grid">
           <div className="sim-suggestion-row">
@@ -2956,58 +3492,6 @@ function App() {
         </div>
       </section>
 
-      <section className="panel-card" aria-labelledby="cashflow-heading">
-        <h2 id="cashflow-heading" className="card-heading">
-          Cash flow
-        </h2>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Year</th>
-                <th scope="col">OpEx</th>
-                <th scope="col">CapEx</th>
-                <th scope="col">Total cost</th>
-                <th scope="col">Cumulative cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.year}>
-                  <td>{r.year}</td>
-                  <td className="num">{formatCurrency(r.opex)}</td>
-                  <td className="num">{formatCurrency(r.capex)}</td>
-                  <td className="num num-strong">{formatCurrency(r.totalCost)}</td>
-                  <td className="num">{formatCurrency(r.cumulativeCost)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="panel-card" aria-labelledby="chart-heading">
-        <h2 id="chart-heading" className="card-heading">
-          Cost by year
-        </h2>
-        <p className="card-lead">
-          Grouped comparison: operating expense, capital expense, and total
-          annual cost.
-        </p>
-        <div className="chart-legend">
-          <span className="legend-item">
-            <span className="legend-swatch legend-swatch-opex" /> OpEx
-          </span>
-          <span className="legend-item">
-            <span className="legend-swatch legend-swatch-capex" /> CapEx
-          </span>
-          <span className="legend-item">
-            <span className="legend-swatch legend-swatch-total" /> Total cost
-          </span>
-        </div>
-        <GrowthChart rows={rows} maxSeries={chartMaxSeries} />
-      </section>
-
       <section className="panel-card" aria-labelledby="breakeven-heading">
         <h2 id="breakeven-heading" className="card-heading">
           ROI break-even
@@ -3032,18 +3516,1069 @@ function App() {
             </span>
           ) : null}
         </div>
-        <RoiBreakevenChart
-          curvePoints={roiCurve}
-          breakeven={breakevenPoint}
-        />
+        <RoiBreakevenChart curvePoints={roiCurve} breakeven={breakevenPoint} />
         <div className="breakeven-callout" role="status">
           {breakevenExplanation.headline ? (
-            <p className="breakeven-callout-head">
-              {breakevenExplanation.headline}
-            </p>
+            <p className="breakeven-callout-head">{breakevenExplanation.headline}</p>
           ) : null}
           <p className="breakeven-callout-body">{breakevenExplanation.body}</p>
         </div>
+      </section>
+    </main>
+  )
+}
+
+function App() {
+  const [activeView, setActiveView] = useState('home')
+  // Panel 5 & 6 state lifted to App for cross-panel data flow
+  const [automationPct, setAutomationPct] = useState(50)
+  const [teamSize, setTeamSize] = useState(10)
+  const [redundancy, setRedundancy] = useState(3)
+  const [multiRegion, setMultiRegion] = useState(false)
+  const [trainingHours, setTrainingHours] = useState(20)
+  const [leadershipEngagement, setLeadershipEngagement] = useState(50)
+  const [marketingSpend, setMarketingSpend] = useState(5)
+  const [networkEffect, setNetworkEffect] = useState(0.3)
+  const [marketType, setMarketType] = useState('B2C')
+
+  /**
+   * When set, replaces table-derived combined OpEx for charts/ROI (Apply %, ROI
+   * suggested OpEx). Cleared when Table 2 on-prem baselines are edited.
+   */
+  const [opexModelOverride, setOpexModelOverride] = useState(null)
+
+  /** Annual growth applied to cloud OPEX Y4/Y5 (Table 3); also drives Cash flow phase labels. */
+  const [panel1AnnualOpexGrowthPct, setPanel1AnnualOpexGrowthPct] =
+    useState(3)
+
+  const [annualDowntimeSavings, setAnnualDowntimeSavings] = useState('300000')
+  const [annualProductivitySavings, setAnnualProductivitySavings] =
+    useState('200000')
+  const [annualDataCenterAvoided, setAnnualDataCenterAvoided] =
+    useState('250000')
+
+  const [aiFraudInvestment, setAiFraudInvestment] = useState(80000)
+  const [aiCxInvestment, setAiCxInvestment] = useState(80000)
+  const [aiDataMiningInvestment, setAiDataMiningInvestment] = useState(80000)
+  const [dataAvailability, setDataAvailability] = useState(70)
+  const [dataReliability, setDataReliability] = useState(70)
+
+  /** Panel 1: Table 1 CAPEX detail — toggled from Cash flow card. */
+  const [panel1CapexDetailOpen, setPanel1CapexDetailOpen] = useState(false)
+
+  /** Panel 1: Table 2 on-prem OPEX — toggled from Cash flow card. */
+  const [panel1OnpremDetailOpen, setPanel1OnpremDetailOpen] = useState(false)
+
+  /** Panel 1: Table 3 cloud + AI OPEX — toggled from Cash flow card. */
+  const [panel1CloudOpexDetailOpen, setPanel1CloudOpexDetailOpen] =
+    useState(false)
+
+  const [panel1Table1Rows, setPanel1Table1Rows] = useState(() =>
+    PANEL1_TABLE1_CAPEX_ROWS.map((r) => ({ ...r })),
+  )
+
+  const [panel1Table2OnpremRows, setPanel1Table2OnpremRows] = useState(() =>
+    PANEL1_TABLE2_ONPREM_OPEX_ROWS.map((r) => ({ ...r })),
+  )
+
+  const [panel1Table3CloudRows, setPanel1Table3CloudRows] = useState(() =>
+    PANEL1_TABLE3_CLOUD_AI_OPEX_ROWS.map((r) => ({ ...r })),
+  )
+
+  const panel1CashflowYearPhases = useMemo(() => {
+    const ft = formatPanel1OpexGrowthPctLabel(panel1AnnualOpexGrowthPct)
+    return [
+      { subtitle: 'Migration' },
+      { subtitle: 'Transition' },
+      { subtitle: 'Stabilized' },
+      { subtitle: `(Y3+${ft}%)`, formula: true },
+      { subtitle: `(Y4+${ft}%)`, formula: true },
+    ]
+  }, [panel1AnnualOpexGrowthPct])
+
+  const panel1Table3CloudRowsDerived = useMemo(
+    () =>
+      panel1Table3CloudRows.map((row) =>
+        row.t === 'l'
+          ? {
+              ...row,
+              ...splitPanel3CloudStabilizedToYears(
+                row.stabilized,
+                panel1AnnualOpexGrowthPct,
+              ),
+            }
+          : row,
+      ),
+    [panel1Table3CloudRows, panel1AnnualOpexGrowthPct],
+  )
+
+  const panel1Table1LineSums = useMemo(
+    () => sumPanel1Table1LineBudgets(panel1Table1Rows),
+    [panel1Table1Rows],
+  )
+
+  /** CAPEX cash series matches TOTAL CAPEX (Y1 / Y2 / zeros) in Table 1. */
+  const panel1NumericCapexByYear = useMemo(
+    () =>
+      YEARS.map((_, i) =>
+        i === 0
+          ? panel1Table1LineSums.y1
+          : i === 1
+            ? panel1Table1LineSums.y2
+            : 0,
+      ),
+    [panel1Table1LineSums],
+  )
+
+  const panel1Table2OnpremSums = useMemo(
+    () => sumPanel2OnpremLineBudgets(panel1Table2OnpremRows),
+    [panel1Table2OnpremRows],
+  )
+
+  const panel1Table3CloudSums = useMemo(
+    () => sumPanel3CloudLineBudgets(panel1Table3CloudRowsDerived),
+    [panel1Table3CloudRowsDerived],
+  )
+
+  /**
+   * One object drives the Cash flow “OPEX (On-Premise)” row and the Table 2
+   * TOTAL ON-PREM OPEX row so Y1, Y2, and 5-yr total stay identical.
+   */
+  const panel1OnpremTotalsAligned = useMemo(() => {
+    const s = panel1Table2OnpremSums
+    const { y1, y2, baseline } = s
+    return {
+      baseline,
+      y1,
+      y2,
+      fiveYr: y1 + y2,
+    }
+  }, [panel1Table2OnpremSums])
+
+  /**
+   * Cost-by-year baseline bars: Year 1 = Table 2 TOTAL ON-PREM annual baseline;
+   * Years 2–5 compound from that base at the Cash flow Annual OpEx change (%).
+   */
+  const panel1BaselineOnPremForChart = useMemo(() => {
+    const B = panel1OnpremTotalsAligned.baseline
+    const g = panel1AnnualOpexGrowthPct
+    const mult = 1 + (Number.isFinite(g) ? g : 0) / 100
+    return YEARS.map((_, i) => Math.round(B * mult ** i))
+  }, [panel1OnpremTotalsAligned.baseline, panel1AnnualOpexGrowthPct])
+
+  /** Combined operating OpEx: Table 2 on-prem wind-down + Table 3 cloud row. */
+  const panel1CombinedOpexFromTables = useMemo(() => {
+    const onP = panel1Table2OnpremSums
+    const cl = panel1Table3CloudSums
+    const onPremByYear = [onP.y1, onP.y2, 0, 0, 0]
+    const cloudByYear = [cl.y1, cl.y2, cl.y3, cl.y4, cl.y5]
+    return YEARS.map((_, yi) => onPremByYear[yi] + cloudByYear[yi])
+  }, [panel1Table2OnpremSums, panel1Table3CloudSums])
+
+  const numericOpexForModel = useMemo(
+    () => opexModelOverride ?? panel1CombinedOpexFromTables,
+    [opexModelOverride, panel1CombinedOpexFromTables],
+  )
+
+  const panel1CashflowRowsForUi = useMemo(() => {
+    const capexYears = panel1NumericCapexByYear
+    const op = panel1OnpremTotalsAligned
+    const onPremYears = [op.y1, op.y2, 0, 0, 0]
+    return [
+      {
+        ...PANEL1_CASHFLOW_DATA_ROWS[0],
+        years: capexYears.map((v, yi) =>
+          yi >= 2 && v === 0 ? null : v,
+        ),
+        fiveYrTotal: panel1Table1LineSums.total,
+      },
+      {
+        ...PANEL1_CASHFLOW_DATA_ROWS[1],
+        years: onPremYears.map((v, yi) =>
+          yi >= 2 && v === 0 ? null : v,
+        ),
+        fiveYrTotal: op.fiveYr,
+      },
+      {
+        ...PANEL1_CASHFLOW_DATA_ROWS[2],
+        years: [
+          panel1Table3CloudSums.y1,
+          panel1Table3CloudSums.y2,
+          panel1Table3CloudSums.y3,
+          panel1Table3CloudSums.y4,
+          panel1Table3CloudSums.y5,
+        ].map((v, yi) => (yi >= 2 && v === 0 ? null : v)),
+        fiveYrTotal: panel1Table3CloudSums.fiveYr,
+      },
+    ]
+  }, [
+    panel1NumericCapexByYear,
+    panel1Table1LineSums.total,
+    panel1OnpremTotalsAligned,
+    panel1Table3CloudSums,
+  ])
+
+  const panel1CashflowCombined = useMemo(
+    () => panel1SumCashflowTotals(panel1CashflowRowsForUi),
+    [panel1CashflowRowsForUi],
+  )
+
+  const rows = useMemo(() => {
+    const numericOpex = numericOpexForModel
+    const numericCapex = panel1NumericCapexByYear
+    return YEARS.reduce(
+      (acc, y, idx) => {
+        const opex = numericOpex[idx]
+        const capex = numericCapex[idx]
+        const totalCost = opex + capex
+        const cumulativeCost = acc.cumulative + totalCost
+        return {
+          cumulative: cumulativeCost,
+          rows: [
+            ...acc.rows,
+            {
+              year: y,
+              opex,
+              capex,
+              totalCost,
+              cumulativeCost,
+            },
+          ],
+        }
+      },
+      { cumulative: 0, rows: [] },
+    ).rows
+  }, [numericOpexForModel, panel1NumericCapexByYear])
+
+  const totalOpex5 = rows.reduce((acc, r) => acc + r.opex, 0)
+  const totalCapex5 = rows.reduce((acc, r) => acc + r.capex, 0)
+  const totalCost5 = totalOpex5 + totalCapex5
+
+  const annualBenefits =
+    parseMoney(annualDowntimeSavings) +
+    parseMoney(annualProductivitySavings) +
+    parseMoney(annualDataCenterAvoided)
+  const totalBenefits5 = annualBenefits * 5
+
+  const roiPct =
+    totalCost5 === 0
+      ? null
+      : ((totalBenefits5 - totalCost5) / totalCost5) * 100
+
+  const roiCurve = useMemo(
+    () => buildRoiCurve(rows, annualBenefits),
+    [rows, annualBenefits],
+  )
+
+  const breakevenPoint = useMemo(() => {
+    if (annualBenefits <= 0) return null
+    return findRoiBreakeven(roiCurve)
+  }, [roiCurve, annualBenefits])
+
+  const breakevenExplanation = useMemo(() => {
+    if (annualBenefits <= 0) {
+      return {
+        headline: null,
+        body: 'Enter positive annual benefits to chart when cumulative value catches cumulative investment.',
+      }
+    }
+    if (breakevenPoint) {
+      return {
+        headline: `${breakevenPoint.tStar.toFixed(2)} years from program start`,
+        body: `The two cumulative curves intersect at about ${formatCurrency(breakevenPoint.amount)}. Interpolation is linear between year-end balances (start at $0 / $0, then each fiscal year-end).`,
+      }
+    }
+    const last = roiCurve[roiCurve.length - 1]
+    const lastGap = last.cumulativeBenefit - last.cumulativeCost
+    const alwaysAhead = roiCurve.every(
+      (p) => p.t === 0 || p.cumulativeBenefit - p.cumulativeCost >= -1,
+    )
+    if (alwaysAhead && lastGap >= -1) {
+      return {
+        headline: 'No separate recovery crossing',
+        body: 'Benefits meet or exceed costs at every year-end on this path—there is no underwater period to recover from.',
+      }
+    }
+    return {
+      headline: 'Not within five years',
+      body: 'Cumulative costs remain ahead through Year 5 on this model. Raise annual benefits or lower spend to pull break-even left.',
+    }
+  }, [annualBenefits, breakevenPoint, roiCurve])
+
+  function handlePanel1Table1LineBudgetChange(rowIndex, raw) {
+    const parsed = splitPanel1Table1BudgetToYears(parseMoney(raw))
+    setPanel1Table1Rows((prev) =>
+      prev.map((row, i) =>
+        i === rowIndex && row.t === 'l' ? { ...row, ...parsed } : row,
+      ),
+    )
+  }
+
+  function handlePanel2OnpremBaselineChange(rowIndex, raw) {
+    const parsed = splitPanel2OnpremBaselineToYears(parseMoney(raw))
+    setOpexModelOverride(null)
+    setPanel1Table2OnpremRows((prev) =>
+      prev.map((row, i) =>
+        i === rowIndex && row.t === 'l' ? { ...row, ...parsed } : row,
+      ),
+    )
+  }
+
+  function handlePanel3CloudStabilizedChange(rowIndex, raw) {
+    const parsed = splitPanel3CloudStabilizedToYears(
+      parseMoney(raw),
+      panel1AnnualOpexGrowthPct,
+    )
+    setOpexModelOverride(null)
+    setPanel1Table3CloudRows((prev) =>
+      prev.map((row, i) =>
+        i === rowIndex && row.t === 'l' ? { ...row, ...parsed } : row,
+      ),
+    )
+  }
+
+  // ── Cross-panel derived values ─────────────────────────────────
+  const _uptimeBase = [95.0, 99.0, 99.5, 99.95, 99.99, 99.999]
+  const _uptimeDelta = [0, 0.5, 0.3, 0.04, 0.009, 0.0009]
+  const _p6UptimeSingle = _uptimeBase[redundancy - 1]
+  const _p6UptimeMulti = Math.min(99.999, _p6UptimeSingle + _uptimeDelta[redundancy - 1])
+  const p6Uptime = multiRegion ? _p6UptimeMulti : _p6UptimeSingle
+  const p6RegionMult = multiRegion ? 1.85 : 1
+  const p6MonthlyCost = Math.round(5000 * Math.pow(redundancy, 1.7) * p6RegionMult)
+  const p6DowntimeHrs = Math.round(((100 - p6Uptime) / 100) * 8760 * 10) / 10
+
+  const _p5BaseFailure = 25
+  const _p5FailureReduction = automationPct >= 70
+    ? 0.4 + ((automationPct - 70) / 30) * 0.2
+    : (automationPct / 70) * 0.4
+  const p5FailureRate = Math.round(Math.max(3, _p5BaseFailure * (1 - _p5FailureReduction)) * 10) / 10
+  const _p5BaseFreq = (teamSize / 5) * 2
+  const _p5AutoFactor = automationPct >= 70
+    ? 1.5 + ((automationPct - 70) / 30) * 0.4
+    : 0.6 + (automationPct / 70) * 0.4
+  const p5DeployFreq = Math.round(_p5BaseFreq * _p5AutoFactor * 10) / 10
+
+  const suggestedOpexPerYear = p6MonthlyCost * 12
+  const _p6BaselineDowntimeHrs = ((100 - 95.0) / 100) * 8760
+  const suggestedDowntimeSavings = Math.round(Math.max(0, (_p6BaselineDowntimeHrs - p6DowntimeHrs) * 20000) / 1000) * 1000
+  const _p5AvoidsPerYear = Math.round(((_p5BaseFailure - p5FailureRate) / 100) * p5DeployFreq * 52)
+  const suggestedProductivitySavings = Math.round(_p5AvoidsPerYear * 2500 / 1000) * 1000
+
+  const isHome = activeView === 'home'
+  const isBudget = activeView === 'budget'
+  const isRoi = activeView === 'roi'
+  const isSensitivity = activeView === 'sensitivity'
+  const isPanels = activeView === 'panels'
+  const isAdoption = activeView === 'adoption'
+  const isDiffusion = activeView === 'diffusion'
+  const topHeaderTitle =
+    activeView === 'home'
+      ? 'Technology Benefit Simulator'
+      : activeView === 'budget'
+        ? 'Panel 1: Cost Estimation'
+        : activeView === 'panels'
+          ? 'Governance, CI/CD & Uptime Simulators'
+          : activeView === 'sensitivity'
+            ? 'Panel 7: ROI Sensitivity Explorer'
+            : activeView === 'adoption'
+              ? 'Panel 8: Adoption Curve'
+              : activeView === 'diffusion'
+                ? 'Panel 9: Diffusion Simulator'
+                : 'ROI and Value Analysis'
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar" aria-label="Primary navigation">
+        <div className="sidebar-stack">
+          <div className="sidebar-brand-row">
+            <button
+              type="button"
+              className="sidebar-brand-hit"
+              onClick={() => setActiveView('home')}
+              aria-label="Benefit Simulator home"
+            >
+              <span className="sidebar-logo-mark" aria-hidden />
+              <span className="sidebar-brand-text">Benefit Simulator</span>
+            </button>
+          </div>
+
+          <nav className="sidebar-nav" aria-label="Panels">
+            <p className="sidebar-nav-caption">Workspace</p>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isHome ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('home')}
+            >
+              <IconHome className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">Overview</span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isBudget ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('budget')}
+            >
+              <IconBudget className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">Panel 1: Cost Estimation</span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isRoi ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('roi')}
+            >
+              <IconRoiValue className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                ROI and Value Analysis
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isPanels ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('panels')}
+            >
+              <IconPanels className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Governance, CI/CD &amp; Uptime
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isSensitivity ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('sensitivity')}
+            >
+              <IconRoiSensitivity className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 7: ROI Sensitivity Explorer
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isAdoption ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('adoption')}
+            >
+              <IconAdoption className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 8: Adoption Curve
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isDiffusion ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('diffusion')}
+            >
+              <IconDiffusion className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 9: Diffusion Simulator
+              </span>
+            </button>
+          </nav>
+        </div>
+
+        <div className="sidebar-footer">
+          <p className="sidebar-footer-caption">Support</p>
+          <button type="button" className="sidebar-footer-link sidebar-footer-link-soft">
+            <IconHelp />
+            Help Center
+          </button>
+          <button type="button" className="sidebar-footer-link sidebar-footer-link-soft">
+            Feedback
+          </button>
+          <div className="sidebar-profile">
+            <div className="sidebar-profile-avatar" aria-hidden>
+              CL
+            </div>
+            <div className="sidebar-profile-meta">
+              <span className="sidebar-profile-name">Claims Lead</span>
+              <span className="sidebar-profile-email">
+                casualty.claims@yourorg.com
+              </span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="app-stage">
+        <AppTopHeader
+          showBack={!isHome}
+          title={topHeaderTitle}
+          onBackToHome={() => setActiveView('home')}
+        />
+        <div className="app-scroll">
+          <LandingHome visible={isHome} />
+
+        <div
+          className="budget-route"
+          id="budget-route"
+          hidden={!isBudget}
+          aria-hidden={!isBudget}
+          style={{ display: isBudget ? 'block' : 'none' }}
+        >
+    <main className="migration-panel" id="panel1-cost-estimation">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud migration simulator · Panel 1</p>
+        <p className="panel-title-context">Cost Estimation</p>
+        <p className="panel-subtitle">
+          InsureCo cloud migration &amp; AI transformation (1,000 employees):
+          cash-flow view combines Table&nbsp;6 one-time CAPEX with Table&nbsp;3B
+          operating lines; Charts use operating OpEx plus modeled CapEx. USD.
+        </p>
+      </header>
+
+      <section className="panel-card" aria-labelledby="cashflow-heading">
+        <h2 id="cashflow-heading" className="card-heading">
+          Cash flow
+        </h2>
+        <div className="panel1-cashflow-opex-slider">
+          <label
+            className="panel1-cashflow-opex-slider-label"
+            htmlFor="panel1-annual-opex-pct"
+          >
+            Annual OpEx change (%)
+            <span className="panel1-cashflow-opex-slider-value" aria-live="polite">
+              {formatPanel1OpexGrowthPctLabel(panel1AnnualOpexGrowthPct)}%
+            </span>
+          </label>
+          <input
+            id="panel1-annual-opex-pct"
+            type="range"
+            min={0}
+            max={10}
+            step={0.5}
+            value={panel1AnnualOpexGrowthPct}
+            onChange={(e) => {
+              setOpexModelOverride(null)
+              setPanel1AnnualOpexGrowthPct(Number(e.target.value))
+            }}
+            aria-valuemin={0}
+            aria-valuemax={10}
+            aria-valuenow={panel1AnnualOpexGrowthPct}
+            aria-label="Annual operating expense year-over-year growth for cloud OPEX years 4 and 5"
+          />
+        </div>
+        <p className="card-lead">
+          CAPEX (Table&nbsp;6) plus OPEX streams (Table&nbsp;3B — v2).{' '}
+          <strong>Total Cost</strong> is the sum of the rows above it by period.
+          The <strong>Cost by year</strong> chart uses modeled operating OpEx
+          (on-prem + cloud) + CapEx. Use the slider for annual OpEx growth on
+          cloud ramp (Years&nbsp;4–5 labels and Table&nbsp;3).
+        </p>
+        <div className="table-scroll">
+          <table className="data-table data-table-panel1-3b">
+            <thead>
+              <tr>
+                <th scope="col">Cost stream</th>
+                {YEARS.map((y, yi) => {
+                  const phase = panel1CashflowYearPhases[yi]
+                  const sub = phase?.subtitle
+                  return (
+                    <th
+                      key={y}
+                      scope="col"
+                      className="num"
+                      aria-label={sub ? `Year ${y} (${sub})` : `Year ${y}`}
+                    >
+                      Year {y}
+                      {sub ? (
+                        <span
+                          className={`data-table-year-phase${phase.formula ? ' data-table-year-phase-formula' : ''}`}
+                        >
+                          {sub}
+                        </span>
+                      ) : null}
+                    </th>
+                  )
+                })}
+                <th scope="col" className="num">
+                  5-Yr Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {panel1CashflowRowsForUi.map((row) => (
+                <tr key={row.label}>
+                  <th scope="row">
+                    {row.label === 'CAPEX (Cloud + AI)' ? (
+                      <span className="panel1-cashflow-capex-row-head">
+                        <span className="panel1-cashflow-capex-row-label">
+                          {row.label}
+                        </span>
+                        <button
+                          type="button"
+                          className="panel1-capex-expand-btn panel1-capex-expand-btn--table"
+                          aria-expanded={panel1CapexDetailOpen}
+                          aria-controls="panel1-capex-detail"
+                          aria-label={
+                            panel1CapexDetailOpen
+                              ? 'Hide CAPEX (Cloud + AI) line-item table'
+                              : 'Show CAPEX (Cloud + AI) line-item table'
+                          }
+                          onClick={() => setPanel1CapexDetailOpen((o) => !o)}
+                        >
+                          {panel1CapexDetailOpen ? '−' : '+'}
+                        </button>
+                      </span>
+                    ) : row.label === 'OPEX (On-Premise)' ? (
+                      <span className="panel1-cashflow-capex-row-head">
+                        <span className="panel1-cashflow-capex-row-label">
+                          {row.label}
+                        </span>
+                        <button
+                          type="button"
+                          className="panel1-capex-expand-btn panel1-capex-expand-btn--table"
+                          aria-expanded={panel1OnpremDetailOpen}
+                          aria-controls="panel1-opex-onprem-detail"
+                          aria-label={
+                            panel1OnpremDetailOpen
+                              ? 'Hide OPEX (On-Premise) detail table'
+                              : 'Show OPEX (On-Premise) detail table'
+                          }
+                          onClick={() => setPanel1OnpremDetailOpen((o) => !o)}
+                        >
+                          {panel1OnpremDetailOpen ? '−' : '+'}
+                        </button>
+                      </span>
+                    ) : row.label === 'OPEX (Cloud + AI)' ? (
+                      <span className="panel1-cashflow-capex-row-head">
+                        <span className="panel1-cashflow-capex-row-label">
+                          {row.label}
+                        </span>
+                        <button
+                          type="button"
+                          className="panel1-capex-expand-btn panel1-capex-expand-btn--table"
+                          aria-expanded={panel1CloudOpexDetailOpen}
+                          aria-controls="panel1-cloud-opex-detail"
+                          aria-label={
+                            panel1CloudOpexDetailOpen
+                              ? 'Hide OPEX (Cloud + AI) detail table'
+                              : 'Show OPEX (Cloud + AI) detail table'
+                          }
+                          onClick={() =>
+                            setPanel1CloudOpexDetailOpen((o) => !o)
+                          }
+                        >
+                          {panel1CloudOpexDetailOpen ? '−' : '+'}
+                        </button>
+                      </span>
+                    ) : (
+                      row.label
+                    )}
+                  </th>
+                  {row.years.map((v, yi) => (
+                    <td key={yi} className="num">
+                      {v == null ? '—' : formatCurrency(v)}
+                    </td>
+                  ))}
+                  <td className="num">{formatCurrency(row.fiveYrTotal)}</td>
+                </tr>
+              ))}
+              <tr className="data-table-total-row">
+                <th scope="row">
+                  <strong>Total Cost</strong>
+                </th>
+                {panel1CashflowCombined.yearly.map((v, yi) => (
+                  <td key={yi} className="num num-strong">
+                    {formatCurrency(v)}
+                  </td>
+                ))}
+                <td className="num num-strong">
+                  {formatCurrency(panel1CashflowCombined.fiveYr)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {panel1CapexDetailOpen ? (
+      <section
+        className="panel-card"
+        id="panel1-capex-detail"
+        aria-labelledby="panel1-table1-capex-heading"
+      >
+        <h2 id="panel1-table1-capex-heading" className="card-heading">
+          CAPEX (Cloud + AI)
+        </h2>
+        <p className="card-lead">
+          One-time capital from Table&nbsp;1 (v2): 60% in Year&nbsp;1, 40% in Year&nbsp;2;
+          no recurring CAPEX in Years&nbsp;3–5. Contingency = 15% × base CAPEX ($6.18M).
+          Total program CAPEX&nbsp;$7,107,000 (aligned with modeled CapEx ramp).
+        </p>
+        <div className="table-scroll">
+          <table className="data-table data-table-panel1-capex-t1">
+            <thead>
+              <tr>
+                <th scope="col">Group</th>
+                <th scope="col">Line item</th>
+                <th scope="col" className="num">
+                  Total budget
+                </th>
+                <th scope="col" className="num">
+                  Year 1 (60%)
+                </th>
+                <th scope="col" className="num">
+                  Year 2 (40%)
+                </th>
+                <th scope="col" className="num">
+                  Year 3
+                </th>
+                <th scope="col" className="num">
+                  Year 4
+                </th>
+                <th scope="col" className="num">
+                  Year 5
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {panel1Table1Rows.map((row, idx) =>
+                row.t === 'g' ? (
+                  <tr key={`g-${idx}`} className="panel1-table1-group-row">
+                    <td colSpan={8}>
+                      <strong>{row.label}</strong>
+                    </td>
+                  </tr>
+                ) : row.t === 'total' ? (
+                  <tr key="total-capex" className="data-table-total-row">
+                    <td />
+                    <td>
+                      <strong>{row.line}</strong>
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table1LineSums.total)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table1LineSums.y1)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table1LineSums.y2)}
+                    </td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                  </tr>
+                ) : (
+                  <tr key={`l-${idx}-${row.line.slice(0, 24)}`}>
+                    <td />
+                    <td>{row.line}</td>
+                    <td className="num">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="field field-money panel1-table1-total-input"
+                        aria-label={`${row.line} total budget`}
+                        value={
+                          Number.isFinite(row.total) ? String(row.total) : ''
+                        }
+                        onChange={(e) =>
+                          handlePanel1Table1LineBudgetChange(idx, e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="num">{formatCurrency(row.y1)}</td>
+                    <td className="num">{formatCurrency(row.y2)}</td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel1-capex-detail-footer">
+          <button
+            type="button"
+            className="btn-secondary panel1-capex-hide-btn"
+            onClick={() => setPanel1CapexDetailOpen(false)}
+          >
+            Hide
+          </button>
+        </div>
+      </section>
+      ) : null}
+
+      {panel1OnpremDetailOpen ? (
+      <section
+        className="panel-card"
+        id="panel1-opex-onprem-detail"
+        aria-labelledby="panel1-table2-onprem-heading"
+      >
+        <h2 id="panel1-table2-onprem-heading" className="card-heading">
+          OPEX (On-Premise)
+        </h2>
+        <p className="card-lead">
+          On-premise OPEX persists at 100% in Year&nbsp;1 and 40% in Year&nbsp;2
+          (dual-running), then fully decommissioned from Year&nbsp;3.{' '}
+          <strong>
+            Annual baseline total:{' '}
+            {formatCurrency(panel1OnpremTotalsAligned.baseline)}
+          </strong>{' '}
+          (Table&nbsp;2 — v2 Corrected).
+        </p>
+        <div className="table-scroll">
+          <table className="data-table data-table-panel1-opex-t2">
+            <thead>
+              <tr>
+                <th scope="col">Group</th>
+                <th scope="col">Line item</th>
+                <th scope="col" className="num">
+                  Annual baseline
+                </th>
+                <th scope="col" className="num">
+                  Year 1 (100%)
+                </th>
+                <th scope="col" className="num">
+                  Year 2 (40%)
+                </th>
+                <th scope="col" className="num">
+                  Year 3 (0%)
+                </th>
+                <th scope="col" className="num">
+                  Year 4 (0%)
+                </th>
+                <th scope="col" className="num">
+                  Year 5 (0%)
+                </th>
+                <th scope="col" className="num">
+                  5-Yr total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {panel1Table2OnpremRows.map((row, idx) =>
+                row.t === 'g' ? (
+                  <tr key={`t2-g-${idx}-${row.label}`} className="panel1-table1-group-row">
+                    <td colSpan={9}>
+                      <strong>{row.label}</strong>
+                    </td>
+                  </tr>
+                ) : row.t === 'total' ? (
+                  <tr key="t2-total" className="data-table-total-row">
+                    <td />
+                    <td>
+                      <strong>{row.line}</strong>
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1OnpremTotalsAligned.baseline)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1OnpremTotalsAligned.y1)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1OnpremTotalsAligned.y2)}
+                    </td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1OnpremTotalsAligned.fiveYr)}
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={`t2-l-${idx}-${row.line.slice(0, 20)}`}>
+                    <td />
+                    <td>{row.line}</td>
+                    <td className="num">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="field field-money panel1-table1-total-input"
+                        aria-label={`${row.line} annual baseline`}
+                        value={
+                          Number.isFinite(row.baseline)
+                            ? String(row.baseline)
+                            : ''
+                        }
+                        onChange={(e) =>
+                          handlePanel2OnpremBaselineChange(idx, e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="num">{formatCurrency(row.y1)}</td>
+                    <td className="num">{formatCurrency(row.y2)}</td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                    <td className="num">—</td>
+                    <td className="num">{formatCurrency(row.fiveYr)}</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel1-capex-detail-footer">
+          <button
+            type="button"
+            className="btn-secondary panel1-capex-hide-btn"
+            aria-label="Hide CAPEX (Cloud + AI) line-item table"
+            onClick={() => setPanel1CapexDetailOpen(false)}
+          >
+            Hide
+          </button>
+        </div>
+      </section>
+      ) : null}
+
+      {panel1CloudOpexDetailOpen ? (
+      <section
+        className="panel-card"
+        id="panel1-cloud-opex-detail"
+        aria-labelledby="panel1-table3-cloud-opex-heading"
+      >
+        <h2 id="panel1-table3-cloud-opex-heading" className="card-heading">
+          OPEX (Cloud + AI)
+        </h2>
+        <p className="card-lead">
+          Cloud OPEX ramps in as workloads migrate: 30% in Year&nbsp;1, 75% in
+          Year&nbsp;2, 100% in Year&nbsp;3 (stabilized run rate). Years&nbsp;4–5
+          use the annual OpEx change from the{' '}
+          <strong>Cash flow</strong> slider (default 3%): Year&nbsp;4 = stabilized
+          × (1 + rate), Year&nbsp;5 = Year&nbsp;4 × (1 + rate) (Table&nbsp;3 — v2).
+        </p>
+        <div className="table-scroll">
+          <table className="data-table data-table-panel1-cloud-t3">
+            <thead>
+              <tr>
+                <th scope="col">Group</th>
+                <th scope="col">Line item</th>
+                <th scope="col" className="num">
+                  Stabilized (Y3)
+                </th>
+                <th scope="col" className="num">
+                  Year 1 (30%)
+                </th>
+                <th scope="col" className="num">
+                  Year 2 (75%)
+                </th>
+                <th scope="col" className="num">
+                  Year 3 (100%)
+                </th>
+                <th scope="col" className="num">
+                  Year 4 (Y3+
+                  {formatPanel1OpexGrowthPctLabel(panel1AnnualOpexGrowthPct)}%)
+                </th>
+                <th scope="col" className="num">
+                  <span className="data-table-th-wrap">
+                    Year 5 (Y4+
+                    {formatPanel1OpexGrowthPctLabel(panel1AnnualOpexGrowthPct)}%)
+                  </span>
+                </th>
+                <th scope="col" className="num">
+                  5-Yr total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {panel1Table3CloudRowsDerived.map((row, idx) =>
+                row.t === 'g' ? (
+                  <tr
+                    key={`t3-g-${idx}-${row.label}`}
+                    className="panel1-table1-group-row"
+                  >
+                    <td colSpan={9}>
+                      <strong>{row.label}</strong>
+                    </td>
+                  </tr>
+                ) : row.t === 'total' ? (
+                  <tr key="t3-total" className="data-table-total-row">
+                    <td />
+                    <td>
+                      <strong>{row.line}</strong>
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table3CloudSums.stabilized)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table3CloudSums.y1)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table3CloudSums.y2)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table3CloudSums.y3)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table3CloudSums.y4)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table3CloudSums.y5)}
+                    </td>
+                    <td className="num num-strong">
+                      {formatCurrency(panel1Table3CloudSums.fiveYr)}
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={`t3-l-${idx}-${row.line.slice(0, 20)}`}>
+                    <td />
+                    <td>{row.line}</td>
+                    <td className="num">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="field field-money panel1-table1-total-input"
+                        aria-label={`${row.line} stabilized (Y3)`}
+                        value={
+                          Number.isFinite(row.stabilized)
+                            ? String(row.stabilized)
+                            : ''
+                        }
+                        onChange={(e) =>
+                          handlePanel3CloudStabilizedChange(idx, e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="num">{formatCurrency(row.y1)}</td>
+                    <td className="num">{formatCurrency(row.y2)}</td>
+                    <td className="num">{formatCurrency(row.y3)}</td>
+                    <td className="num">{formatCurrency(row.y4)}</td>
+                    <td className="num">{formatCurrency(row.y5)}</td>
+                    <td className="num">{formatCurrency(row.fiveYr)}</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel1-capex-detail-footer">
+          <button
+            type="button"
+            className="btn-secondary panel1-capex-hide-btn"
+            aria-label="Hide OPEX (Cloud + AI) detail table"
+            onClick={() => setPanel1CloudOpexDetailOpen(false)}
+          >
+            Hide
+          </button>
+        </div>
+      </section>
+      ) : null}
+
+      <section className="panel-card" aria-labelledby="chart-heading">
+        <h2 id="chart-heading" className="card-heading">
+          Cost by year
+        </h2>
+        <p className="card-lead">
+          Each year compares <strong>baseline</strong> on-prem OPEX (Year&nbsp;1 =
+          Table&nbsp;2 <strong>annual baseline</strong> total; Years&nbsp;2–5 grow
+          at the Cash flow <strong>Annual OpEx change (%)</strong>) to the{' '}
+          <strong>migration scenario</strong>: stacked <strong>CAPEX</strong> plus{' '}
+          <strong>OPEX (combined operating)</strong>, matching the cash-flow model.
+        </p>
+        <div className="chart-legend">
+          <span className="legend-item">
+            <span className="legend-swatch legend-swatch-baseline-prem" />{' '}
+            Baseline On-Prem OPEX
+          </span>
+          <span className="legend-item">
+            <span className="legend-swatch legend-swatch-p1-capex" /> CAPEX
+          </span>
+          <span className="legend-item">
+            <span className="legend-swatch legend-swatch-p1-opex-combined" />{' '}
+            OPEX (combined)
+          </span>
+        </div>
+        <Panel1CostByYearChart
+          rows={rows}
+          baselineOnPremByYear={panel1BaselineOnPremForChart}
+        />
       </section>
     </main>
         </div>
@@ -3055,7 +4590,33 @@ function App() {
           aria-hidden={!isRoi}
           style={{ display: isRoi ? 'block' : 'none' }}
         >
-          <RoiValuePanel />
+          <RoiValuePanel
+            redundancy={redundancy}
+            multiRegion={multiRegion}
+            p6Uptime={p6Uptime}
+            suggestedOpexPerYear={suggestedOpexPerYear}
+            suggestedDowntimeSavings={suggestedDowntimeSavings}
+            suggestedProductivitySavings={suggestedProductivitySavings}
+            automationPct={automationPct}
+            p5FailureRate={p5FailureRate}
+            setOpexByYear={(yearStrings) =>
+              setOpexModelOverride(yearStrings.map(parseMoney))
+            }
+            setAnnualDowntimeSavings={setAnnualDowntimeSavings}
+            setAnnualProductivitySavings={setAnnualProductivitySavings}
+            annualDowntimeSavings={annualDowntimeSavings}
+            annualProductivitySavings={annualProductivitySavings}
+            annualDataCenterAvoided={annualDataCenterAvoided}
+            setAnnualDataCenterAvoided={setAnnualDataCenterAvoided}
+            totalOpex5={totalOpex5}
+            totalCapex5={totalCapex5}
+            totalCost5={totalCost5}
+            totalBenefits5={totalBenefits5}
+            roiPct={roiPct}
+            roiCurve={roiCurve}
+            breakevenPoint={breakevenPoint}
+            breakevenExplanation={breakevenExplanation}
+          />
         </div>
 
         <div
