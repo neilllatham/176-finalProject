@@ -978,6 +978,28 @@ function IconRoiValue({ className }) {
   )
 }
 
+function IconGovernanceCompliance({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 14l-4-4 1.41-1.41L11 12.17l6.59-6.58L19 7l-8 8z"
+      />
+    </svg>
+  )
+}
+
+function IconPerformanceResilience({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.18 1.75-.49 2.53l2.6 1.53A9.983 9.983 0 0022 12c0-5.4-3.71-9.93-8.71-10.95zM11 2.05C5.71 3.06 2 7.53 2 12c0 4.73 3.25 8.71 7.62 9.76l2.52-5.76A4.942 4.942 0 019 17c0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.28-.51-2.43-1.32-3.31L11 2.05z"
+      />
+    </svg>
+  )
+}
+
 function IconHelp({ className = '' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" width="18" height="18" aria-hidden>
@@ -995,6 +1017,17 @@ function IconPanels({ className }) {
       <path
         fill="currentColor"
         d="M3 3h8v8H3V3zm0 10h8v8H3v-8zm10-10h8v8h-8V3zm0 10h8v8h-8v-8z"
+      />
+    </svg>
+  )
+}
+
+function IconCiCdPipeline({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M2 13h13v11H2V13zm15 13h9V8h-9v18zM17 11V2H9v15h13V11h-5z"
       />
     </svg>
   )
@@ -1464,6 +1497,35 @@ const LANDING_BASELINE_METRICS = [
   },
 ]
 
+/** Panel 3 — placeholder until governance & compliance content is implemented. */
+function Panel3GovernanceCompliancePlaceholder() {
+  return (
+    <main className="migration-panel" id="panel3-governance-compliance">
+      <header className="panel-header panel-header-context">
+        <p className="migration-eyebrow">Cloud migration simulator · Panel 3</p>
+        <p className="panel-title-context">Governance &amp; Compliance</p>
+        <p className="panel-subtitle">
+          Placeholder workspace — controls, policies, and assurance views for
+          the programme will plug in here.
+        </p>
+      </header>
+      <section
+        className="panel-card panel-placeholder-card"
+        aria-labelledby="panel3-placeholder-heading"
+      >
+        <h2 id="panel3-placeholder-heading" className="card-heading">
+          Content coming soon
+        </h2>
+        <p className="card-lead">
+          This panel is reserved for governance frameworks, regulatory and
+          security compliance checkpoints, audit trails, and executive
+          dashboards. Implementation TBD.
+        </p>
+      </section>
+    </main>
+  )
+}
+
 function LandingHome({ visible }) {
   return (
     <div
@@ -1645,7 +1707,7 @@ function Panel4Governance({ slaUptime }) {
 }
 
 /* ─────────────────────────────────────────────
-   PANEL 5 – CI/CD Pipeline Efficiency Simulator
+   PANEL 5 – CI/CD Pipeline Efficiency (cloud migration simulator)
 ───────────────────────────────────────────── */
 function Panel5CiCd({ automationPct, setAutomationPct, teamSize, setTeamSize }) {
   // Model: baseline deploy frequency = 2/week per 5 devs
@@ -1677,10 +1739,10 @@ function Panel5CiCd({ automationPct, setAutomationPct, teamSize, setTeamSize }) 
   }
 
   return (
-    <main className="migration-panel" id="panel5-cicd">
+    <main className="migration-panel" id="panel5-cicd-pipeline-efficiency">
       <header className="panel-header panel-header-context">
-        <p className="migration-eyebrow">Cloud management · Section 5</p>
-        <p className="panel-title-context">CI/CD Pipeline Efficiency Simulator</p>
+        <p className="migration-eyebrow">Cloud migration simulator · Panel 5</p>
+        <p className="panel-title-context">CI/CD pipeline efficiency</p>
         <p className="panel-subtitle">
           Adjust automation coverage and team size to see how deployment
           frequency and failure rate change. Automation above 70 % unlocks
@@ -1768,7 +1830,7 @@ function Panel5CiCd({ automationPct, setAutomationPct, teamSize, setTeamSize }) 
 }
 
 /* ─────────────────────────────────────────────
-   PANEL 6 – Uptime vs Cost Simulator
+   PANEL 6 – Performance & Resilience (Uptime vs Cost)
 ───────────────────────────────────────────── */
 function Panel6Uptime({ redundancy, setRedundancy, multiRegion, setMultiRegion }) {
   // Non-linear uptime model (each level of redundancy gives diminishing gains)
@@ -1823,10 +1885,10 @@ function Panel6Uptime({ redundancy, setRedundancy, multiRegion, setMultiRegion }
     .join(' ')
 
   return (
-    <main className="migration-panel" id="panel6-uptime">
+    <main className="migration-panel" id="panel6-performance-resilience">
       <header className="panel-header panel-header-context">
-        <p className="migration-eyebrow">Cloud management · Section 6</p>
-        <p className="panel-title-context">Uptime vs Cost Simulator</p>
+        <p className="migration-eyebrow">Cloud migration simulator · Panel 6</p>
+        <p className="panel-title-context">Performance &amp; resilience</p>
         <p className="panel-subtitle">
           Adjust redundancy level and region mode to see real-time uptime
           and monthly cost trade-offs. Non-linear cost curve — optimal
@@ -4674,8 +4736,11 @@ function App() {
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
   const isRoi = activeView === 'roi'
+  const isPanel3Governance = activeView === 'panel3'
   const isSensitivity = activeView === 'sensitivity'
   const isPanels = activeView === 'panels'
+  const isPanel5CiCd = activeView === 'panel5'
+  const isPanel6Performance = activeView === 'panel6'
   const isAdoption = activeView === 'adoption'
   const isDiffusion = activeView === 'diffusion'
   const topHeaderTitle =
@@ -4685,15 +4750,21 @@ function App() {
         ? 'Panel 1: Cost Estimation'
         : activeView === 'roi'
           ? 'Panel 2: ROI Analysis'
-          : activeView === 'panels'
-          ? 'Governance, CI/CD & Uptime Simulators'
-          : activeView === 'sensitivity'
-            ? 'Panel 7: ROI Sensitivity Explorer'
-            : activeView === 'adoption'
-              ? 'Panel 8: Adoption Curve'
-              : activeView === 'diffusion'
-                ? 'Panel 9: Diffusion Simulator'
-                : 'Technology Benefit Simulator'
+          : activeView === 'panel3'
+            ? 'Panel 3: Governance & Compliance'
+            : activeView === 'panels'
+              ? 'Panel 4: Governance & SLA'
+              : activeView === 'panel5'
+                ? 'Panel 5: CI/CD Pipeline Efficiency'
+                : activeView === 'panel6'
+                  ? 'Panel 6: Performance & Resilience'
+                  : activeView === 'sensitivity'
+                    ? 'Panel 7: ROI Sensitivity Explorer'
+                    : activeView === 'adoption'
+                      ? 'Panel 8: Adoption Curve'
+                      : activeView === 'diffusion'
+                        ? 'Panel 9: Diffusion Simulator'
+                        : 'Technology Benefit Simulator'
 
   return (
     <div className="app-shell">
@@ -4741,12 +4812,42 @@ function App() {
             </button>
             <button
               type="button"
+              className={`sidebar-nav-item${isPanel3Governance ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('panel3')}
+            >
+              <IconGovernanceCompliance className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 3: Governance &amp; Compliance
+              </span>
+            </button>
+            <button
+              type="button"
               className={`sidebar-nav-item${isPanels ? ' sidebar-nav-item-active' : ''}`}
               onClick={() => setActiveView('panels')}
             >
               <IconPanels className="sidebar-nav-svg" />
               <span className="sidebar-nav-label">
-                Governance, CI/CD &amp; Uptime
+                Panel 4: Governance &amp; SLA
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isPanel5CiCd ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('panel5')}
+            >
+              <IconCiCdPipeline className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 5: CI/CD Pipeline Efficiency
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-nav-item${isPanel6Performance ? ' sidebar-nav-item-active' : ''}`}
+              onClick={() => setActiveView('panel6')}
+            >
+              <IconPerformanceResilience className="sidebar-nav-svg" />
+              <span className="sidebar-nav-label">
+                Panel 6: Performance &amp; Resilience
               </span>
             </button>
             <button
@@ -5403,6 +5504,48 @@ function App() {
         </div>
 
         <div
+          className="panel3-route"
+          id="panel3-route"
+          hidden={!isPanel3Governance}
+          aria-hidden={!isPanel3Governance}
+          style={{
+            display: isPanel3Governance ? 'block' : 'none',
+          }}
+        >
+          <Panel3GovernanceCompliancePlaceholder />
+        </div>
+
+        <div
+          className="panel5-route"
+          id="panel5-route"
+          hidden={!isPanel5CiCd}
+          aria-hidden={!isPanel5CiCd}
+          style={{ display: isPanel5CiCd ? 'block' : 'none' }}
+        >
+          <Panel5CiCd
+            automationPct={automationPct}
+            setAutomationPct={setAutomationPct}
+            teamSize={teamSize}
+            setTeamSize={setTeamSize}
+          />
+        </div>
+
+        <div
+          className="panel6-route"
+          id="panel6-route"
+          hidden={!isPanel6Performance}
+          aria-hidden={!isPanel6Performance}
+          style={{ display: isPanel6Performance ? 'block' : 'none' }}
+        >
+          <Panel6Uptime
+            redundancy={redundancy}
+            setRedundancy={setRedundancy}
+            multiRegion={multiRegion}
+            setMultiRegion={setMultiRegion}
+          />
+        </div>
+
+        <div
           className="sensitivity-route"
           id="sensitivity-route"
           hidden={!isSensitivity}
@@ -5465,8 +5608,6 @@ function App() {
           style={{ display: isPanels ? 'block' : 'none' }}
         >
           <Panel4Governance slaUptime={p6Uptime} />
-          <Panel5CiCd automationPct={automationPct} setAutomationPct={setAutomationPct} teamSize={teamSize} setTeamSize={setTeamSize} />
-          <Panel6Uptime redundancy={redundancy} setRedundancy={setRedundancy} multiRegion={multiRegion} setMultiRegion={setMultiRegion} />
         </div>
         </div>
       </div>

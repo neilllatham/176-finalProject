@@ -486,9 +486,17 @@
 }
 
 .budget-route,
-.roi-route {
+.roi-route,
+.panel3-route,
+.panel5-route,
+.panel6-route {
   max-width: min(1480px, 100%);
   margin-inline: auto;
+}
+
+.panel-placeholder-card {
+  border-style: dashed;
+  opacity: 0.98;
 }
 
 @media (max-width: 720px) {
