@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import './App.css'
+import { Panel3GovernanceCompliancePanel } from './Panel3Governance.jsx'
 
 const YEARS = [1, 2, 3, 4, 5]
 
@@ -1496,35 +1497,6 @@ const LANDING_BASELINE_METRICS = [
     description: 'Current SLA (Target: 99.95% post-migration)',
   },
 ]
-
-/** Panel 3 — placeholder until governance & compliance content is implemented. */
-function Panel3GovernanceCompliancePlaceholder() {
-  return (
-    <main className="migration-panel" id="panel3-governance-compliance">
-      <header className="panel-header panel-header-context">
-        <p className="migration-eyebrow">Cloud migration simulator · Panel 3</p>
-        <p className="panel-title-context">Governance &amp; Compliance</p>
-        <p className="panel-subtitle">
-          Placeholder workspace — controls, policies, and assurance views for
-          the programme will plug in here.
-        </p>
-      </header>
-      <section
-        className="panel-card panel-placeholder-card"
-        aria-labelledby="panel3-placeholder-heading"
-      >
-        <h2 id="panel3-placeholder-heading" className="card-heading">
-          Content coming soon
-        </h2>
-        <p className="card-lead">
-          This panel is reserved for governance frameworks, regulatory and
-          security compliance checkpoints, audit trails, and executive
-          dashboards. Implementation TBD.
-        </p>
-      </section>
-    </main>
-  )
-}
 
 function LandingHome({ visible }) {
   return (
@@ -5623,7 +5595,7 @@ function App() {
             display: isPanel3Governance ? 'block' : 'none',
           }}
         >
-          <Panel3GovernanceCompliancePlaceholder />
+          <Panel3GovernanceCompliancePanel />
         </div>
 
         <div
