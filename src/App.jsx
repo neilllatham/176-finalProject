@@ -1,4 +1,10 @@
-import { useMemo, useState } from 'react'
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import './App.css'
 import { Panel3GovernanceCompliancePanel } from './Panel3Governance.jsx'
 
@@ -1493,8 +1499,8 @@ const LANDING_BASELINE_METRICS = [
   },
   {
     metric: 'System Uptime',
-    value: '99.2%',
-    description: 'Current SLA (Target: 99.95% post-migration)',
+    value: '95%',
+    description: 'Current SLA (Target: 99.9% post-migration)',
   },
 ]
 
@@ -1602,24 +1608,811 @@ function AppTopHeader({ showBack, title, onBackToHome }) {
   )
 }
 
+/** Panel 4 — decision structure (single Mermaid flowchart). */
+const PANEL4_DECISION_STRUCTURE_MERMAID = `flowchart TD
+    classDef strategic   fill:#1A3A5C,color:#fff,stroke:#1A3A5C
+    classDef oversight   fill:#6C3483,color:#fff,stroke:#6C3483
+    classDef panel       fill:#7D3C98,color:#fff,stroke:#7D3C98
+    classDef tactical    fill:#1A6B3C,color:#fff,stroke:#1A6B3C
+    classDef operational fill:#E8E8E8,color:#263238,stroke:#BDBDBD
+
+    ESC["Executive Steering Committee<br/>Chair: CEO | Members: CIO · CTO · CFO · CRO · CCO<br/>Cadence: Monthly"]:::strategic
+
+    CCO["CCO — Business Co-Sponsor<br/>Veto Rights: CX & Customer Workflows<br/>Cadence: Quarterly"]:::oversight
+
+    CRO["CRO / Compliance — Business Co-Sponsor<br/>Veto Rights: Risk & Regulatory Decisions<br/>Cadence: Quarterly"]:::oversight
+
+    PANEL["AI Ethics Review Panel<br/>CTO · Legal · Compliance · Customer Rep<br/>Gate: Consequential AI Models | Quarterly"]:::panel
+
+    CIO["CIO — Primary Owner<br/>Full AI & Cloud Programme<br/>Chairs Cloud Migration Board | Fortnightly"]:::tactical
+
+    HAI["Head of AI — Reports to CIO<br/>Owns: Models · MLOps · Data Pipelines<br/>Fortnightly"]:::tactical
+
+    HCS["Head of Customer Service<br/>Formal Stakeholder — CS Department<br/>UAT Sign-off Rights | Fortnightly Sprint Review"]:::oversight
+
+    CFAS["Cloud FinOps & Architecture Squad<br/>Lead: Lead Cloud Architect<br/>Infra · Security · Cost Optimisation | Weekly"]:::operational
+
+    ACSS["AI Customer Service Squad<br/>Lead: AI Product Owner<br/>Chatbot · Agent-Assist · Model Training | Weekly<br/>── Embedded: CS SME (seconded from CS Dept) ──<br/>Validates flows · UAT sign-off · Backlog priority"]:::operational
+
+    MLOPS["MLOps & Data Engineering Squad<br/>Lead: Head of AI<br/>Model Quality · Pipelines · Monitoring | Weekly"]:::operational
+
+    ESC -->|"Programme Mandate & Budget"| CIO
+    ESC -->|"Business Priorities"| CCO
+    ESC -->|"Risk Appetite"| CRO
+
+    CCO -->|"CX Veto & Workflow Approval"| CIO
+    CRO -->|"Risk Veto & Compliance Rules"| CIO
+
+    CIO -->|"AI Programme Ownership"| HAI
+    CIO -->|"Architecture Guidelines"| CFAS
+
+    PANEL -->|"Production Gate Sign-off"| HAI
+
+    HAI -->|"Model & Data Direction"| ACSS
+    HAI -->|"MLOps Standards"| MLOPS
+
+    HCS -->|"UAT Sign-off & Business Requirements"| ACSS
+    HCS -.->|"Escalate: Operational / UX issues"| HAI
+
+    CFAS -.->|"Escalate: Budget / Timeline"| CIO
+    ACSS -.->|"Escalate: CX or Regulatory risk"| HAI
+    MLOPS -.->|"Escalate: Model accuracy / bias"| HAI
+    HAI -.->|"Escalate: Consequential AI deployment"| PANEL
+    CIO -.->|"Escalate: Major scope / budget"| ESC`
+
+/** Hover notes for Panel 4 flowchart nodes (shown when cursor rests on a node). */
+const PANEL4_MERMAID_NODE_NOTES = {
+  ESC: {
+    title: 'Executive Steering Committee',
+    paragraphs: [
+      'The Executive Steering Committee (dark navy, top) is the highest governing body of the programme. It sets the programme mandate and budget to the CIO, delegates business priorities to the CCO, and delegates risk appetite to the CRO. It also holds the CTO as a member, providing technology strategy perspective at the board level. The ESC meets monthly and is the only body with authority to approve major scope or budget changes.',
+    ],
+  },
+  CCO: {
+    title: 'CCO — Business Co-Sponsor',
+    paragraphs: [
+      'The CCO, CRO, and Head of Customer Service (purple, second row) form the business oversight layer. The CCO and CRO are business co-sponsors — they feed their veto rights and compliance rules directly into the CIO, but they are not in the CIO’s reporting line. They sit alongside, not above. The CCO holds veto rights over customer-facing AI workflows and CX standards. The CRO holds veto rights over risk and regulatory decisions. The Head of Customer Service sits in this same purple tier, reflecting that they too are a business stakeholder with formal authority — specifically, UAT sign-off rights over every AI customer service feature before it reaches production. All three meet on a quarterly basis, except the Head of Customer Service who also attends fortnightly sprint reviews.',
+    ],
+  },
+  CRO: {
+    title: 'CRO / Compliance — Business Co-Sponsor',
+    paragraphs: [
+      'The CCO, CRO, and Head of Customer Service (purple, second row) form the business oversight layer. The CCO and CRO are business co-sponsors — they feed their veto rights and compliance rules directly into the CIO, but they are not in the CIO’s reporting line. They sit alongside, not above. The CCO holds veto rights over customer-facing AI workflows and CX standards. The CRO holds veto rights over risk and regulatory decisions. The Head of Customer Service sits in this same purple tier, reflecting that they too are a business stakeholder with formal authority — specifically, UAT sign-off rights over every AI customer service feature before it reaches production. All three meet on a quarterly basis, except the Head of Customer Service who also attends fortnightly sprint reviews.',
+    ],
+  },
+  HCS: {
+    title: 'Head of Customer Service',
+    paragraphs: [
+      'The CCO, CRO, and Head of Customer Service (purple, second row) form the business oversight layer. The CCO and CRO are business co-sponsors — they feed their veto rights and compliance rules directly into the CIO, but they are not in the CIO’s reporting line. They sit alongside, not above. The CCO holds veto rights over customer-facing AI workflows and CX standards. The CRO holds veto rights over risk and regulatory decisions. The Head of Customer Service sits in this same purple tier, reflecting that they too are a business stakeholder with formal authority — specifically, UAT sign-off rights over every AI customer service feature before it reaches production. All three meet on a quarterly basis, except the Head of Customer Service who also attends fortnightly sprint reviews.',
+    ],
+  },
+  PANEL: {
+    title: 'AI Ethics Review Panel',
+    paragraphs: [
+      'The AI Ethics Review Panel (lighter purple, oversight layer) is not a governing body but a production gate. It is composed of the CTO, Legal, Compliance, and a Customer Representative. No consequential AI model — one that influences underwriting, claims, fraud scoring, or pricing — may be deployed to production without passing this panel’s sign-off checklist. The CTO’s presence provides the technical scrutiny that Legal and Compliance alone cannot supply.',
+    ],
+  },
+  CIO: {
+    title: 'CIO — Primary Owner',
+    paragraphs: [
+      'The CIO (green, tactical centre) is the single primary owner of the full programme — both the cloud migration and the AI implementation. The CIO receives four inputs from above: the programme mandate from the ESC, the CX veto from the CCO, the risk and compliance rules from the CRO, and the production gate sign-off from the AI Ethics Review Panel flowing through the Head of AI. The CIO directs both the Head of AI and the Cloud FinOps & Architecture Squad, and chairs the Cloud Migration Board on a fortnightly basis.',
+    ],
+  },
+  HAI: {
+    title: 'Head of AI',
+    paragraphs: [
+      'The Head of AI (green, below CIO) reports directly into the CIO and owns the full AI model lifecycle — models, MLOps, and data pipelines. The Head of AI directs the two AI operational squads: the AI Customer Service Squad and the MLOps & Data Engineering Squad. When a consequential AI model is ready for production, the Head of AI escalates it sideways to the AI Ethics Review Panel for gate sign-off before it can go live. The Head of AI also receives operational and UX issue escalations directly from the Head of Customer Service between sprint reviews.',
+    ],
+  },
+  CFAS: {
+    title: 'Cloud FinOps & Architecture Squad',
+    paragraphs: [
+      'The three operational squads (light gray, bottom) execute on a weekly cadence and escalate upward only when predefined thresholds are breached. The Cloud FinOps & Architecture Squad, led by the Lead Cloud Architect, handles infrastructure, security, and cost optimisation, escalating budget or timeline breaches to the CIO.',
+    ],
+  },
+  ACSS: {
+    title: 'AI Customer Service Squad',
+    paragraphs: [
+      'The three operational squads (light gray, bottom) execute on a weekly cadence and escalate upward only when predefined thresholds are breached. The AI Customer Service Squad, led by the AI Product Owner, builds the chatbot, agent-assist tool, and model training pipelines — and critically, has a CS SME permanently embedded within it, seconded from the CS department, who validates dialogue flows, prioritises the backlog from an operational perspective, and co-signs UAT before every release. This squad escalates CX or regulatory risks to the Head of AI.',
+    ],
+  },
+  MLOPS: {
+    title: 'MLOps & Data Engineering Squad',
+    paragraphs: [
+      'The three operational squads (light gray, bottom) execute on a weekly cadence and escalate upward only when predefined thresholds are breached. The MLOps & Data Engineering Squad, led by the Head of AI, maintains model quality, data pipelines, and production monitoring, escalating model accuracy degradation or bias detection to the Head of AI.',
+    ],
+  },
+}
+
+function inferPanel4MermaidNodeKey(nodeGroup) {
+  const id = nodeGroup.getAttribute('id') || ''
+  const keys = [
+    'ESC',
+    'CCO',
+    'CRO',
+    'PANEL',
+    'CIO',
+    'HAI',
+    'HCS',
+    'CFAS',
+    'ACSS',
+    'MLOPS',
+  ]
+  for (const k of keys) {
+    if (new RegExp(`(?:^|-)${k}(?:-|_|\\d|$)`).test(id)) return k
+  }
+  const text = (nodeGroup.textContent || '').slice(0, 120)
+  if (text.includes('Executive Steering Committee')) return 'ESC'
+  if (text.includes('CCO —')) return 'CCO'
+  if (text.includes('CRO / Compliance')) return 'CRO'
+  if (text.includes('AI Ethics Review Panel')) return 'PANEL'
+  if (text.includes('CIO — Primary Owner')) return 'CIO'
+  if (text.includes('Head of AI —')) return 'HAI'
+  if (text.includes('Head of Customer Service')) return 'HCS'
+  if (text.includes('Cloud FinOps & Architecture')) return 'CFAS'
+  if (text.includes('AI Customer Service Squad')) return 'ACSS'
+  if (text.includes('MLOps & Data Engineering')) return 'MLOPS'
+  return null
+}
+
+function attachPanel4MermaidNodeHover(svgEl, setHoverTip) {
+  const cleanups = []
+  const nodes = svgEl.querySelectorAll('g.node')
+  nodes.forEach((g) => {
+    const key = inferPanel4MermaidNodeKey(g)
+    if (!key || !PANEL4_MERMAID_NODE_NOTES[key]) return
+    const note = PANEL4_MERMAID_NODE_NOTES[key]
+    g.setAttribute('tabindex', '0')
+    g.setAttribute('aria-label', note.title)
+    g.style.cursor = 'help'
+    const onEnter = (e) => {
+      setHoverTip({
+        key,
+        x: e.clientX,
+        y: e.clientY,
+      })
+    }
+    const onMove = (e) => {
+      setHoverTip((prev) =>
+        prev && prev.key === key
+          ? { ...prev, x: e.clientX, y: e.clientY }
+          : prev,
+      )
+    }
+    const onLeave = () => setHoverTip(null)
+    const onFocus = () => {
+      const r = g.getBoundingClientRect()
+      setHoverTip({
+        key,
+        x: r.left + r.width / 2,
+        y: r.top + r.height / 2,
+      })
+    }
+    const onBlur = () => setHoverTip(null)
+    g.addEventListener('mouseenter', onEnter)
+    g.addEventListener('mousemove', onMove)
+    g.addEventListener('mouseleave', onLeave)
+    g.addEventListener('focus', onFocus)
+    g.addEventListener('blur', onBlur)
+    cleanups.push(() => {
+      g.removeEventListener('mouseenter', onEnter)
+      g.removeEventListener('mousemove', onMove)
+      g.removeEventListener('mouseleave', onLeave)
+      g.removeEventListener('focus', onFocus)
+      g.removeEventListener('blur', onBlur)
+      g.removeAttribute('tabindex')
+      g.removeAttribute('aria-label')
+      g.style.cursor = ''
+    })
+  })
+  return () => cleanups.forEach((fn) => fn())
+}
+
+/** Panel 4 — colour legend (matches Mermaid classDef fills). */
+const PANEL4_DECISION_COLOUR_LEGEND = [
+  {
+    colourName: 'Dark Navy',
+    swatch: '#1A3A5C',
+    family: 'Strategic',
+    roles: 'Executive Steering Committee',
+  },
+  {
+    colourName: 'Purple',
+    swatch: 'linear-gradient(90deg, #6C3483 0% 50%, #7D3C98 50% 100%)',
+    family: 'Business Oversight',
+    roles:
+      'CCO, CRO, Head of Customer Service, AI Ethics Review Panel',
+  },
+  {
+    colourName: 'Green',
+    swatch: '#1A6B3C',
+    family: 'Tactical Ownership',
+    roles: 'CIO, Head of AI',
+  },
+  {
+    colourName: 'Light Gray',
+    swatch: '#E8E8E8',
+    family: 'Operational Execution',
+    roles: 'Cloud FinOps Squad, AI CS Squad, MLOps Squad',
+  },
+]
+
+function Panel4DecisionStructureMermaid() {
+  const hostRef = useRef(null)
+  const renderSeq = useRef(0)
+  const baseId = `p4-mermaid-${useId().replace(/:/g, '')}`
+  const [hoverTip, setHoverTip] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    let detachHover = () => {}
+    const mountEl = hostRef.current
+    if (!mountEl) return
+    renderSeq.current += 1
+    const rid = `${baseId}-r${renderSeq.current}`
+
+    ;(async () => {
+      try {
+        const mermaid = (await import('mermaid')).default
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'neutral',
+          securityLevel: 'loose',
+          fontFamily: 'inherit',
+        })
+        const { svg } = await mermaid.render(rid, PANEL4_DECISION_STRUCTURE_MERMAID)
+        if (!cancelled && mountEl) {
+          mountEl.innerHTML = svg
+          const svgEl = mountEl.querySelector('svg')
+          if (svgEl) {
+            detachHover = attachPanel4MermaidNodeHover(svgEl, setHoverTip)
+          }
+        }
+      } catch (e) {
+        console.error(e)
+        if (!cancelled && mountEl) {
+          mountEl.innerHTML =
+            '<p class="p4-mermaid-fallback">Diagram could not be rendered.</p>'
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      detachHover()
+      setHoverTip(null)
+      mountEl.innerHTML = ''
+    }
+  }, [baseId])
+
+  const tipMeta =
+    hoverTip && PANEL4_MERMAID_NODE_NOTES[hoverTip.key]
+      ? PANEL4_MERMAID_NODE_NOTES[hoverTip.key]
+      : null
+
+  const tooltipStyle = useMemo(() => {
+    if (!hoverTip) return null
+    const pad = 14
+    const approxWidth = 352
+    let left = hoverTip.x + pad
+    let top = hoverTip.y + pad
+    if (typeof window !== 'undefined') {
+      left = Math.min(left, Math.max(12, window.innerWidth - approxWidth))
+      top = Math.min(top, Math.max(12, window.innerHeight - 180))
+    }
+    return {
+      position: 'fixed',
+      left,
+      top,
+      zIndex: 80,
+    }
+  }, [hoverTip])
+
+  return (
+    <div className="p4-mermaid-scroll">
+      <div
+        ref={hostRef}
+        className="p4-mermaid-root"
+        aria-label="Decision structure flowchart — hover or focus a node for narrative notes"
+      />
+      {tipMeta && tooltipStyle ? (
+        <div
+          className="p4-mermaid-node-tooltip"
+          role="tooltip"
+          aria-live="polite"
+          style={tooltipStyle}
+        >
+          <p className="p4-mermaid-node-tooltip-title">{tipMeta.title}</p>
+          {tipMeta.paragraphs.map((p, i) => (
+            <p key={i} className="p4-mermaid-node-tooltip-p">
+              {p}
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   PANEL 4 – Customer Service SLA (policyholder-facing excerpt)
+───────────────────────────────────────────── */
+function Panel4CustomerServiceSla({ slaUptime }) {
+  return (
+    <div className="p4-sla-document">
+      <header className="p4-sla-doc-header">
+        <h3 className="p4-sla-doc-title">
+          InsureCo Customer Service Commitment
+        </h3>
+        <p className="p4-sla-doc-subtitle">
+          Service Level Agreement for Policyholders
+        </p>
+        <dl className="p4-sla-doc-meta">
+          <div className="p4-sla-meta-row">
+            <dt>Effective date</dt>
+            <dd>
+              Upon commencement of your policy with InsureCo
+            </dd>
+          </div>
+          <div className="p4-sla-meta-row">
+            <dt>Applies to</dt>
+            <dd>
+              All InsureCo policyholders across personal, commercial, and life
+              insurance products
+            </dd>
+          </div>
+        </dl>
+      </header>
+
+      <section
+        className="p4-sla-section"
+        aria-labelledby="p4-sla-commitment-intro"
+      >
+        <h4 id="p4-sla-commitment-intro" className="p4-sla-section-title">
+          Our Commitment to You
+        </h4>
+        <p className="p4-sla-prose">
+          At InsureCo, we understand that when you contact us, it is often at a
+          moment that matters — after an accident, during a property emergency,
+          or when you need urgent guidance on your coverage. We have invested in
+          a modern cloud-based platform and AI-assisted customer service tools
+          specifically to ensure that you receive a fast, accurate, and
+          consistent response every time, through whichever channel you choose to
+          reach us.
+        </p>
+        <p className="p4-sla-prose">
+          This Service Level Agreement sets out the specific service standards
+          you are entitled to as an InsureCo policyholder, and what we will do
+          if we fall short of them.
+        </p>
+      </section>
+
+      <section
+        className="p4-sla-section"
+        aria-labelledby="p4-sla-s1"
+      >
+        <h4 id="p4-sla-s1" className="p4-sla-section-title">
+          1. Service Availability
+        </h4>
+        <p className="p4-sla-prose">
+          Our digital services — including the InsureCo customer portal, mobile
+          app, AI chat assistant, and online claims submission — are available{' '}
+          <strong>
+            24 hours a day, 7 days a week, 365 days a year
+          </strong>
+          , with a guaranteed monthly availability of{' '}
+          <strong>99.9%</strong>.
+        </p>
+        <p className="p4-sla-prose">
+          This means that in any given month, planned or unplanned downtime will
+          not exceed 43.8 minutes. In the rare event of a system outage, our
+          emergency claims line remains available at all times as an alternative
+          channel.
+        </p>
+        <div className="table-scroll">
+          <table className="data-table p4-sla-table">
+            <thead>
+              <tr>
+                <th scope="col">Service channel</th>
+                <th scope="col">Availability commitment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Online customer portal &amp; mobile app</td>
+                <td>99.9% monthly availability</td>
+              </tr>
+              <tr>
+                <td>AI chat assistant</td>
+                <td>99.9% monthly availability</td>
+              </tr>
+              <tr>
+                <td>Online claims submission</td>
+                <td>99.9% monthly availability</td>
+              </tr>
+              <tr>
+                <td>Emergency claims phone line</td>
+                <td>
+                  24 / 7 / 365 — <strong>no exceptions</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="p4-sla-prose">
+          If our digital services fall below the 99.9% availability commitment in
+          any calendar month, we will proactively contact affected policyholders
+          and apply a goodwill credit to their next renewal premium as described
+          in Section 5.
+        </p>
+        <aside className="p4-sla-simulator-callout">
+          <strong>Migration programme simulator.</strong> Internal resilience
+          settings (Panel 6) currently imply{' '}
+          <strong>{slaUptime.toFixed(3)}%</strong> achieved uptime in the
+          scenario model — useful for comparing engineering posture with this{' '}
+          <strong>99.9%</strong> policyholder commitment.
+        </aside>
+      </section>
+
+      <section className="p4-sla-section" aria-labelledby="p4-sla-s2">
+        <h4 id="p4-sla-s2" className="p4-sla-section-title">
+          2. Response Time Standards
+        </h4>
+        <p className="p4-sla-prose">
+          We commit to the following response times across all service channels.
+          These standards apply regardless of whether you are served by our AI
+          assistant or a human agent.
+        </p>
+
+        <h5 className="p4-sla-subsection-title">
+          2.1 General Enquiries (policy information, coverage questions, billing)
+        </h5>
+        <div className="table-scroll">
+          <table className="data-table p4-sla-table">
+            <thead>
+              <tr>
+                <th scope="col">Channel</th>
+                <th scope="col">Response commitment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>AI chat assistant</td>
+                <td>Immediate — available 24 / 7</td>
+              </tr>
+              <tr>
+                <td>Phone (human agent)</td>
+                <td>Answer within 3 minutes during business hours</td>
+              </tr>
+              <tr>
+                <td>Email or online form</td>
+                <td>Substantive response within 1 business day</td>
+              </tr>
+              <tr>
+                <td>Secure message via portal</td>
+                <td>Substantive response within 1 business day</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h5 className="p4-sla-subsection-title">
+          2.2 Claims — Standard (non-emergency)
+        </h5>
+        <p className="p4-sla-prose">
+          A standard claim is any claim that does not involve immediate risk to
+          life, safety, or property. This includes motor claims with no
+          injuries, minor property damage, and travel claims.
+        </p>
+        <div className="table-scroll">
+          <table className="data-table p4-sla-table">
+            <thead>
+              <tr>
+                <th scope="col">Stage</th>
+                <th scope="col">Commitment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Claim acknowledgement</td>
+                <td>Within 1 business hour of submission</td>
+              </tr>
+              <tr>
+                <td>Claim handler assigned</td>
+                <td>Within 4 business hours</td>
+              </tr>
+              <tr>
+                <td>Initial coverage decision communicated</td>
+                <td>
+                  Within 3 business days of receiving all required documents
+                </td>
+              </tr>
+              <tr>
+                <td>Settlement payment issued (approved claims)</td>
+                <td>Within 5 business days of final approval</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h5 className="p4-sla-subsection-title">
+          2.3 Claims — Emergency (immediate risk to safety or property)
+        </h5>
+        <p className="p4-sla-prose">
+          An emergency claim involves an active risk to your safety, your home, or
+          your vehicle — for example, a flood in progress, a road accident with
+          injuries, or a break-in at your property.
+        </p>
+        <div className="table-scroll">
+          <table className="data-table p4-sla-table">
+            <thead>
+              <tr>
+                <th scope="col">Stage</th>
+                <th scope="col">Commitment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Emergency line answered</td>
+                <td>Within 60 seconds, 24 / 7 / 365</td>
+              </tr>
+              <tr>
+                <td>Emergency assistance dispatched (where applicable)</td>
+                <td>Within 30 minutes of call</td>
+              </tr>
+              <tr>
+                <td>Emergency claim registered and handler assigned</td>
+                <td>Within 1 hour of first contact</td>
+              </tr>
+              <tr>
+                <td>
+                  Interim payment or emergency accommodation arranged
+                </td>
+                <td>
+                  Within 4 hours where policy entitlement confirmed
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="p4-sla-section" aria-labelledby="p4-sla-s3">
+        <h4 id="p4-sla-s3" className="p4-sla-section-title">
+          3. AI-Assisted Service Standards
+        </h4>
+        <p className="p4-sla-prose">
+          InsureCo uses AI tools to assist both customers and our agents. We are
+          committed to ensuring that AI enhances your experience rather than
+          replacing the human judgement that matters in complex or sensitive
+          situations.
+        </p>
+        <p className="p4-sla-prose">
+          <strong>What our AI assistant can do for you:</strong> Answer policy
+          questions, provide coverage summaries, guide you through the claims
+          submission process, retrieve your documents, and connect you to the
+          right human agent instantly.
+        </p>
+        <p className="p4-sla-prose">
+          <strong>When you will always speak to a human agent:</strong> Any claim
+          involving injury, bereavement, or dispute; any situation where you
+          request a human agent; any coverage decision that affects your policy
+          terms; and any complaint.
+        </p>
+        <p className="p4-sla-prose">
+          <strong>AI accuracy commitment:</strong> Our AI assistant is trained on
+          verified InsureCo policy documentation and is reviewed quarterly for
+          accuracy. If you receive information from our AI assistant that you
+          believe is incorrect, please notify us immediately. We will investigate,
+          correct the record, and ensure the error does not affect your policy or
+          claim outcome.
+        </p>
+      </section>
+
+      <section className="p4-sla-section" aria-labelledby="p4-sla-s4">
+        <h4 id="p4-sla-s4" className="p4-sla-section-title">
+          4. Complaint Handling
+        </h4>
+        <p className="p4-sla-prose">
+          If you are dissatisfied with any aspect of our service, you have the
+          right to raise a formal complaint. We treat every complaint seriously
+          and commit to the following:
+        </p>
+        <div className="table-scroll">
+          <table className="data-table p4-sla-table">
+            <thead>
+              <tr>
+                <th scope="col">Stage</th>
+                <th scope="col">Commitment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Complaint acknowledged</td>
+                <td>Within 1 business day of receipt</td>
+              </tr>
+              <tr>
+                <td>Complaint investigator assigned</td>
+                <td>Within 2 business days</td>
+              </tr>
+              <tr>
+                <td>Substantive response provided</td>
+                <td>Within 8 business days</td>
+              </tr>
+              <tr>
+                <td>Final resolution communicated</td>
+                <td>Within 28 calendar days</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="p4-sla-prose">
+          If we are unable to resolve your complaint within 28 days, we will
+          write to you explaining the reason for the delay and the expected
+          resolution date. You retain the right to refer your complaint to the
+          relevant insurance ombudsman or regulatory authority at any time.
+        </p>
+      </section>
+
+      <section className="p4-sla-section" aria-labelledby="p4-sla-s5">
+        <h4 id="p4-sla-s5" className="p4-sla-section-title">
+          5. Service Credits and Remedies
+        </h4>
+        <p className="p4-sla-prose">
+          If InsureCo fails to meet the commitments set out in this SLA, the
+          following remedies apply automatically. You do not need to request
+          these — we will apply them proactively.
+        </p>
+        <div className="table-scroll">
+          <table className="data-table p4-sla-table">
+            <thead>
+              <tr>
+                <th scope="col">Breach</th>
+                <th scope="col">Remedy</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  Digital platform availability below 99.9% in a calendar month
+                </td>
+                <td>
+                  Goodwill credit of 1 month&apos;s premium applied at next
+                  renewal
+                </td>
+              </tr>
+              <tr>
+                <td>Emergency claims line not answered within 60 seconds</td>
+                <td>
+                  Priority case handling and written apology within 2 business
+                  days
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Standard claim initial decision not communicated within 3
+                  business days
+                </td>
+                <td>
+                  Dedicated senior claims handler assigned and written
+                  explanation provided
+                </td>
+              </tr>
+              <tr>
+                <td>Complaint not resolved within 28 calendar days</td>
+                <td>
+                  Written escalation to InsureCo&apos;s Head of Customer Service
+                  and regulatory notification where required
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="p4-sla-section" aria-labelledby="p4-sla-s6">
+        <h4 id="p4-sla-s6" className="p4-sla-section-title">
+          6. Data Privacy and Security
+        </h4>
+        <p className="p4-sla-prose">
+          InsureCo&apos;s cloud platform is hosted on enterprise-grade
+          infrastructure with the following protections in place for your
+          personal and financial data:
+        </p>
+        <ul className="p4-sla-bullet-list">
+          <li>
+            All data is encrypted in transit and at rest using industry-standard
+            AES-256 encryption.
+          </li>
+          <li>
+            Your data is stored within the jurisdiction specified in your policy
+            documentation and is never transferred outside of it without your
+            explicit consent.
+          </li>
+          <li>
+            In the event of a data breach affecting your personal information,
+            InsureCo will notify you within{' '}
+            <strong>72 hours</strong> of becoming aware of the breach, in
+            accordance with applicable data protection regulations.
+          </li>
+          <li>
+            You have the right to request a copy of all personal data InsureCo
+            holds about you at any time, free of charge, with a response provided
+            within 30 calendar days.
+          </li>
+        </ul>
+      </section>
+
+      <section className="p4-sla-section" aria-labelledby="p4-sla-s7">
+        <h4 id="p4-sla-s7" className="p4-sla-section-title">
+          7. Planned Maintenance
+        </h4>
+        <p className="p4-sla-prose">
+          Planned system maintenance will be scheduled outside of peak business
+          hours (between 00:00 and 05:00 local time) and will be communicated to
+          policyholders via the InsureCo customer portal and email at least{' '}
+          <strong>72 hours in advance</strong>. Emergency claims services will
+          remain fully operational during all planned maintenance windows.
+        </p>
+      </section>
+
+      <section className="p4-sla-section p4-sla-section-last" aria-labelledby="p4-sla-s8">
+        <h4 id="p4-sla-s8" className="p4-sla-section-title">
+          8. How to Contact Us
+        </h4>
+        <div className="table-scroll">
+          <table className="data-table p4-sla-table">
+            <thead>
+              <tr>
+                <th scope="col">Channel</th>
+                <th scope="col">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>AI Chat Assistant</td>
+                <td>Available 24 / 7 via the InsureCo app or website</td>
+              </tr>
+              <tr>
+                <td>Customer Service Phone</td>
+                <td>
+                  Available during business hours (08:00 – 20:00, Monday to
+                  Saturday)
+                </td>
+              </tr>
+              <tr>
+                <td>Emergency Claims Line</td>
+                <td>Available 24 / 7 / 365</td>
+              </tr>
+              <tr>
+                <td>Email / Online Form</td>
+                <td>Via the InsureCo customer portal</td>
+              </tr>
+              <tr>
+                <td>Complaints</td>
+                <td>
+                  complaints@insureco.com or in writing to InsureCo Customer
+                  Relations
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="p4-sla-prose p4-sla-prose-foot">
+          InsureCo is authorised and regulated by the relevant insurance
+          regulatory authority. This SLA does not limit or replace any statutory
+          rights you hold as a policyholder under applicable insurance and
+          consumer protection legislation.
+        </p>
+      </section>
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────
    PANEL 4 – Governance & SLA
 ───────────────────────────────────────────── */
 function Panel4Governance({ slaUptime }) {
-  const slaRows = [
-    { metric: 'Target uptime SLA', value: '99.9%', note: `≤ 8.76 hrs downtime/yr · Simulator: ${slaUptime.toFixed(3)}% achieved` },
-    { metric: 'Incident response (P1)', value: '< 15 min', note: 'Paging + war-room within 15 min' },
-    { metric: 'Incident response (P2)', value: '< 1 hr', note: 'Business-hours acknowledgement' },
-    { metric: 'Planned maintenance window', value: 'Sun 02:00–04:00 UTC', note: 'Monthly, 4-week notice required' },
-    { metric: 'Change-freeze periods', value: 'Last 5 business days of quarter', note: 'No prod deploys without CAB approval' },
-  ]
-
-  const committeeItems = [
-    { cadence: 'Monthly', body: 'Cloud Steering Committee', agenda: 'Budget actuals vs forecast, roadmap review, SLA scorecard' },
-    { cadence: 'Weekly', body: 'Engineering Leadership Sync', agenda: 'Pipeline health, incident retrospectives, upcoming deployments' },
-    { cadence: 'Quarterly', body: 'Executive Business Review', agenda: 'Strategic alignment, vendor performance, risk posture' },
-  ]
-
   return (
     <main className="migration-panel" id="panel4-governance">
       <header className="panel-header panel-header-context">
@@ -1631,48 +2424,67 @@ function Panel4Governance({ slaUptime }) {
         </p>
       </header>
 
-      {/* Decision structure */}
+      {/* Decision structure — single Mermaid governance chart */}
       <section className="panel-card" aria-labelledby="p4-committee-heading">
-        <h2 id="p4-committee-heading" className="card-heading">Decision Structure</h2>
-        <p className="card-lead">
-          Three governance bodies provide oversight at different cadences.
-          The Cloud Steering Committee meets monthly and holds final authority
-          over budget deviations and architecture decisions.
-        </p>
-        <div className="p4-committee-grid">
-          {committeeItems.map((c) => (
-            <div key={c.body} className="p4-committee-card">
-              <span className="p4-cadence-badge">{c.cadence}</span>
-              <p className="p4-committee-name">{c.body}</p>
-              <p className="p4-committee-agenda">{c.agenda}</p>
-            </div>
-          ))}
+        <h2 id="p4-committee-heading" className="card-heading">
+          Decision Structure
+        </h2>
+        <Panel4DecisionStructureMermaid />
+        <div
+          className="p4-colour-legend"
+          role="region"
+          aria-labelledby="p4-colour-legend-heading"
+        >
+          <h3 id="p4-colour-legend-heading" className="p4-colour-legend-title">
+            Colour legend
+          </h3>
+          <p className="p4-colour-legend-lead">
+            Node fills in the chart above map to governance families below.
+          </p>
+          <div className="table-scroll">
+            <table className="p4-colour-legend-table">
+              <thead>
+                <tr>
+                  <th scope="col">Colour</th>
+                  <th scope="col">Family</th>
+                  <th scope="col">Roles</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PANEL4_DECISION_COLOUR_LEGEND.map((row) => (
+                  <tr key={row.colourName}>
+                    <td>
+                      <span className="p4-legend-colour-cell">
+                        <span
+                          className="p4-legend-swatch"
+                          style={{ background: row.swatch }}
+                          aria-hidden
+                        />
+                        <span className="p4-legend-colour-name">
+                          {row.colourName}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="p4-legend-family">{row.family}</td>
+                    <td className="p4-legend-roles">{row.roles}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
-      {/* SLA table */}
+      {/* SLA — InsureCo Customer Service Commitment */}
       <section className="panel-card" aria-labelledby="p4-sla-heading">
-        <h2 id="p4-sla-heading" className="card-heading">SLA Terms</h2>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Metric</th>
-                <th scope="col">Commitment</th>
-                <th scope="col">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {slaRows.map((r) => (
-                <tr key={r.metric}>
-                  <td>{r.metric}</td>
-                  <td className="num-strong">{r.value}</td>
-                  <td className="p4-sla-note">{r.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <h2 id="p4-sla-heading" className="card-heading">
+          SLA Terms
+        </h2>
+        <p className="card-lead p4-sla-card-lead">
+          Policyholder-facing service standards, response times, remedies, and
+          contact channels — aligned with the cloud and AI programme.
+        </p>
+        <Panel4CustomerServiceSla slaUptime={slaUptime} />
       </section>
     </main>
   )
