@@ -2490,38 +2490,515 @@ function Panel4Governance({ slaUptime }) {
   )
 }
 
+const PANEL5_PROGRAMME_TOTAL_MONTHS = 24
+
+const PANEL5_IMPLEMENTATION_ROADMAP_PHASES = [
+  {
+    id: 'p0',
+    title: 'Phase 0 — Foundation & CI/CD Pipeline Setup',
+    horizon: 'Months 1–3',
+    startMonth: 1,
+    endMonth: 3,
+  },
+  {
+    id: 'p1',
+    title: 'Phase 1 — Non-Critical Workload Migration',
+    horizon: 'Months 3–9',
+    startMonth: 3,
+    endMonth: 9,
+  },
+  {
+    id: 'p2',
+    title: 'Phase 2 — Core Insurance Systems Migration',
+    horizon: 'Months 9–18',
+    startMonth: 9,
+    endMonth: 18,
+  },
+  {
+    id: 'p3',
+    title:
+      'Phase 3 — AI Customer Service Platform Build & Deployment',
+    horizon: 'Months 6–18 (parallel)',
+    startMonth: 6,
+    endMonth: 18,
+    parallel: true,
+  },
+  {
+    id: 'p4',
+    title:
+      'Phase 4 — Optimisation & Continuous Improvement',
+    horizon: 'Months 18–24',
+    startMonth: 18,
+    endMonth: 24,
+  },
+]
+
+function panel5GanttPct(startMonth, endMonth) {
+  const denom = PANEL5_PROGRAMME_TOTAL_MONTHS
+  const leftPct = ((startMonth - 1) / denom) * 100
+  const widthPct = ((endMonth - startMonth + 1) / denom) * 100
+  return { leftPct, widthPct }
+}
+
+function Panel5ImplementationRoadmap() {
+  return (
+    <section className="panel-card" aria-labelledby="p5-roadmap-heading">
+      <h2 id="p5-roadmap-heading" className="card-heading">
+        Implementation Roadmap
+      </h2>
+      <p className="card-lead p5-roadmap-lead">
+        High-level sequencing over a{' '}
+        <strong>{PANEL5_PROGRAMME_TOTAL_MONTHS}-month</strong> programme
+        horizon. Phase 3 runs <strong>in parallel</strong> with overlapping
+        migration waves.
+      </p>
+
+      <div
+        className="p5-roadmap-chart"
+        role="group"
+        aria-label="Gantt-style programme timeline"
+      >
+        <div className="p5-gantt-header-row">
+          <div aria-hidden="true" className="p5-gantt-corner" />
+          <div className="p5-gantt-month-axis">
+            <div className="p5-gantt-axis-inner" aria-hidden="true">
+              <span className="p5-gantt-axis-zero">Month 1</span>
+              {[6, 12, 18].map((month) => (
+                <span
+                  key={month}
+                  className="p5-gantt-axis-tick"
+                  style={{
+                    left: `${((month - 1) / PANEL5_PROGRAMME_TOTAL_MONTHS) * 100}%`,
+                  }}
+                >
+                  M{month}
+                </span>
+              ))}
+              <span className="p5-gantt-axis-end">Month 24</span>
+            </div>
+          </div>
+        </div>
+
+        {PANEL5_IMPLEMENTATION_ROADMAP_PHASES.map((phase) => {
+          const { leftPct, widthPct } = panel5GanttPct(
+            phase.startMonth,
+            phase.endMonth,
+          )
+          const monthsDur = phase.endMonth - phase.startMonth + 1
+          return (
+            <div className="p5-gantt-row" key={phase.id}>
+              <div className="p5-gantt-row-label">
+                <span className="p5-gantt-phase-title">{phase.title}</span>
+                <span className="p5-gantt-phase-horizon">
+                  {phase.horizon}
+                  {phase.parallel ? (
+                    <>
+                      {' '}
+                      <span className="p5-gantt-badge-parallel">Parallel</span>
+                    </>
+                  ) : null}
+                </span>
+              </div>
+              <div
+                className="p5-gantt-track-wrap"
+                title={`Spans months ${phase.startMonth}–${phase.endMonth} (${monthsDur} months)`}
+              >
+                <div className="p5-gantt-track">
+                  <div
+                    className={`p5-gantt-bar p5-gantt-bar--${phase.id}`}
+                    style={{
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <table className="sr-only">
+        <caption>Implementation roadmap phases and month ranges</caption>
+        <thead>
+          <tr>
+            <th scope="col">Phase</th>
+            <th scope="col">Months (inclusive)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {PANEL5_IMPLEMENTATION_ROADMAP_PHASES.map((ph) => (
+            <tr key={ph.id}>
+              <td>{ph.title}</td>
+              <td>
+                {ph.startMonth}–{ph.endMonth}
+                {ph.parallel ? ' · parallel stream' : ''}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+/**
+ * Lead time (days): 25 × team_penalty × auto_factor
+ * team_penalty = 1 + 0.015 × (team_size − 10)²
+ * auto_factor = 1 − 0.65 × ln(1 + automation%) / ln(101)
+ * (≈65% reduction at 100% vs 0% automation for fixed team size.)
+ */
+function panel5LeadTimeDaysRaw(teamSize, automationPct) {
+  const teamPenalty = 1 + 0.015 * (teamSize - 10) ** 2
+  const autoFactor =
+    1 - (0.65 * Math.log(1 + automationPct)) / Math.log(101)
+  return 25 * teamPenalty * autoFactor
+}
+
+function panel5LeadTimeDaysClamped(teamSize, automationPct) {
+  return Math.min(
+    30,
+    Math.max(0, panel5LeadTimeDaysRaw(teamSize, automationPct)),
+  )
+}
+
+function Panel5LeadTimeSurface({ teamSize, automationPct }) {
+  const rawDays = panel5LeadTimeDaysRaw(teamSize, automationPct)
+  const days = panel5LeadTimeDaysClamped(teamSize, automationPct)
+  const teamPenalty = 1 + 0.015 * (teamSize - 10) ** 2
+  const autoFactor =
+    1 - (0.65 * Math.log(1 + automationPct)) / Math.log(101)
+  const onSpectrum =
+    Math.min(100, Math.max(0, (days / 30) * 100))
+
+  return (
+    <section className="panel-card" aria-labelledby="p5-leadtime-heading">
+      <h2 id="p5-leadtime-heading" className="card-heading">
+        Lead Time for Changes (Days)
+      </h2>
+
+      <p className="p5-metric-value p5-leadtime-outcome" aria-live="polite">
+        <strong>{days.toFixed(1)}</strong> days
+        {rawDays > 30 ? (
+          <span className="p5-leadtime-cap-note">
+            {' '}
+            (capped from {rawDays.toFixed(1)} at 30 days max for display)
+          </span>
+        ) : null}
+      </p>
+
+      <p className="p5-leadtime-check" aria-label="Model check">
+        Check: 25 × {teamPenalty.toFixed(3)} (team_penalty) ×{' '}
+        {autoFactor.toFixed(3)} (auto_factor) ≈{' '}
+        <strong>{rawDays.toFixed(1)}</strong> days before capping.
+      </p>
+
+      <div className="p5-leadtime-1d-legend">
+        <p className="p5-leadtime-1d-title">Lead time scale (0–30 days)</p>
+        <div
+          className="p5-leadtime-1d-track"
+          role="img"
+          aria-label={`Gradient from green (low lead time, good) to red (high lead time, bad). Current position about ${onSpectrum.toFixed(0)} percent toward bad end.`}
+        >
+          <span className="p5-leadtime-1d-marker" style={{ left: `${onSpectrum}%` }} />
+        </div>
+        <div className="p5-leadtime-1d-axis">
+          <span>0 days — good (green)</span>
+          <span>30 days — bad (red)</span>
+        </div>
+      </div>
+
+      <p className="p5-leadtime-sweet-spot">
+        Sweet spot: team <strong>8–12</strong> people, automation{' '}
+        <strong>70–85%</strong> (optimal band for this model).
+      </p>
+    </section>
+  )
+}
+
+/**
+ * Deploys/month: 55 × team_factor × auto_factor
+ * team_factor = exp(−0.012 × (team_size − 10)²)
+ * auto_factor = ln(1 + automation% × 1.5) / ln(151)
+ * At 100% automation auto_factor = 1. At 70%, auto_factor ≈ ln(106)/ln(151) ≈ 0.88
+ * (spec often cites ~80% of max gain at 70% as a rule-of-thumb; the curve above 70%
+ * flattens as marginal automation gains shrink.)
+ */
+function panel5DeployFreqPerMonthRaw(teamSize, automationPct) {
+  const teamFactor = Math.exp(-0.012 * (teamSize - 10) ** 2)
+  const autoFactor =
+    Math.log(1 + automationPct * 1.5) / Math.log(151)
+  return 55 * teamFactor * autoFactor
+}
+
+function panel5DeployFreqPerMonthClamped(teamSize, automationPct) {
+  return Math.min(
+    60,
+    Math.max(0, panel5DeployFreqPerMonthRaw(teamSize, automationPct)),
+  )
+}
+
+const PANEL5_DEPFREQ_SPECTRUM_MAX = 60
+
+function Panel5DeployFrequencySurface({ teamSize, automationPct }) {
+  const rawDeploys = panel5DeployFreqPerMonthRaw(teamSize, automationPct)
+  const deploys = panel5DeployFreqPerMonthClamped(teamSize, automationPct)
+  const teamFactor = Math.exp(-0.012 * (teamSize - 10) ** 2)
+  const autoFactor =
+    Math.log(1 + automationPct * 1.5) / Math.log(151)
+  const autoFactorAt70 =
+    Math.log(1 + 70 * 1.5) / Math.log(151)
+  const onSpectrum = Math.min(
+    100,
+    Math.max(0, (deploys / PANEL5_DEPFREQ_SPECTRUM_MAX) * 100),
+  )
+
+  return (
+    <section className="panel-card" aria-labelledby="p5-deployfreq-heading">
+      <h2 id="p5-deployfreq-heading" className="card-heading">
+        Deployment Frequency (Deployments per Month)
+      </h2>
+
+      <p className="p5-metric-value p5-deployfreq-outcome" aria-live="polite">
+        <strong>{deploys.toFixed(1)}</strong> deploys / month
+        {rawDeploys > PANEL5_DEPFREQ_SPECTRUM_MAX ? (
+          <span className="p5-deployfreq-cap-note">
+            {' '}
+            (capped from {rawDeploys.toFixed(1)} at{' '}
+            {PANEL5_DEPFREQ_SPECTRUM_MAX} deploys/mo for display)
+          </span>
+        ) : null}
+      </p>
+
+      <p className="p5-deployfreq-check" aria-label="Model check">
+        Check: 55 × {teamFactor.toFixed(4)} (team_factor) ×{' '}
+        {autoFactor.toFixed(4)} (auto_factor) ≈{' '}
+        <strong>{rawDeploys.toFixed(1)}</strong> deploys/month before capping. At
+        70% automation, auto_factor ≈ {autoFactorAt70.toFixed(3)} (
+        {(autoFactorAt70 * 100).toFixed(0)}% of the 100% value).
+      </p>
+
+      <div className="p5-deployfreq-1d-legend">
+        <p className="p5-deployfreq-1d-title">
+          Colour bar: deployment frequency (0–{PANEL5_DEPFREQ_SPECTRUM_MAX}{' '}
+          deploys/month)
+        </p>
+        <div
+          className="p5-deployfreq-1d-track"
+          role="img"
+          aria-label={`Gradient from dark blue (low frequency, bad) to bright yellow (high frequency, good). Marker about ${onSpectrum.toFixed(0)} percent along the scale.`}
+        >
+          <span
+            className="p5-deployfreq-1d-marker"
+            style={{ left: `${onSpectrum}%` }}
+          />
+        </div>
+        <div className="p5-deployfreq-1d-axis">
+          <span>0 — low (dark blue)</span>
+          <span>
+            {PANEL5_DEPFREQ_SPECTRUM_MAX} — high (bright yellow)
+          </span>
+        </div>
+      </div>
+
+      <p className="p5-deployfreq-sweet-spot">
+        Sweet spot: team <strong>8–12</strong> people, automation{' '}
+        <strong>65–85%</strong> (highlighted as the favourable band in the full
+        surface view; here, same band for reference).
+      </p>
+    </section>
+  )
+}
+
+/**
+ * Restore time (hours): 20 × team_penalty × auto_factor
+ * team_penalty = 1 + 0.018 × (team_size − 10)²
+ * auto_factor = 1 − 0.70 × ln(1 + automation%) / ln(101)
+ * At 100% automation, auto_factor = 0.30 (~70% reduction vs 0% for same team).
+ */
+function panel5RestoreTimeHoursRaw(teamSize, automationPct) {
+  const teamPenalty = 1 + 0.018 * (teamSize - 10) ** 2
+  const autoFactor =
+    1 - (0.7 * Math.log(1 + automationPct)) / Math.log(101)
+  return 20 * teamPenalty * autoFactor
+}
+
+function panel5RestoreTimeHoursClamped(teamSize, automationPct) {
+  return Math.min(
+    24,
+    Math.max(0, panel5RestoreTimeHoursRaw(teamSize, automationPct)),
+  )
+}
+
+const PANEL5_RESTORE_SPECTRUM_MAX = 24
+
+function Panel5RestoreTimeSurface({ teamSize, automationPct }) {
+  const rawHours = panel5RestoreTimeHoursRaw(teamSize, automationPct)
+  const hours = panel5RestoreTimeHoursClamped(teamSize, automationPct)
+  const teamPenalty = 1 + 0.018 * (teamSize - 10) ** 2
+  const autoFactor =
+    1 - (0.7 * Math.log(1 + automationPct)) / Math.log(101)
+  const autoFactorAt70 =
+    1 - (0.7 * Math.log(1 + 70)) / Math.log(101)
+  const onSpectrumGoodEnd = Math.min(
+    100,
+    Math.max(0, (1 - hours / PANEL5_RESTORE_SPECTRUM_MAX) * 100),
+  )
+
+  return (
+    <section className="panel-card" aria-labelledby="p5-restore-heading">
+      <h2 id="p5-restore-heading" className="card-heading">
+        Time to Restore Service (Hours)
+      </h2>
+
+      <p className="p5-metric-value p5-restore-outcome" aria-live="polite">
+        <strong>{hours.toFixed(1)}</strong> hours
+        {rawHours > PANEL5_RESTORE_SPECTRUM_MAX ? (
+          <span className="p5-restore-cap-note">
+            {' '}
+            (capped from {rawHours.toFixed(1)} at {PANEL5_RESTORE_SPECTRUM_MAX}{' '}
+            hours for display)
+          </span>
+        ) : null}
+      </p>
+
+      <p className="p5-restore-check" aria-label="Model check">
+        Check: 20 × {teamPenalty.toFixed(4)} (team_penalty) ×{' '}
+        {autoFactor.toFixed(4)} (auto_factor) ≈{' '}
+        <strong>{rawHours.toFixed(1)}</strong> hours before capping. At 70%
+        automation, auto_factor ≈ {autoFactorAt70.toFixed(3)}; at 100%,{' '}
+        {(1 - 0.7).toFixed(2)} (70% time reduction vs 0% automation for the same
+        team size).
+      </p>
+
+      <div className="p5-restore-1d-legend">
+        <p className="p5-restore-1d-title">
+          Colour bar: restore time (0–{PANEL5_RESTORE_SPECTRUM_MAX} hours)
+        </p>
+        <div
+          className="p5-restore-1d-track"
+          role="img"
+          aria-label={`Gradient from deep red on the left (long restore, bad) to light green on the right (short restore, good). Marker about ${onSpectrumGoodEnd.toFixed(0)} percent toward the good end.`}
+        >
+          <span
+            className="p5-restore-1d-marker"
+            style={{ left: `${onSpectrumGoodEnd}%` }}
+          />
+        </div>
+        <div className="p5-restore-1d-axis">
+          <span>
+            {PANEL5_RESTORE_SPECTRUM_MAX} h — bad (deep red)
+          </span>
+          <span>0 h — good (light green)</span>
+        </div>
+      </div>
+
+      <p className="p5-restore-sweet-spot">
+        Sweet spot: team <strong>8–12</strong> people, automation{' '}
+        <strong>70–90%</strong> (favourable band in the full surface view; same band
+        for reference here).
+      </p>
+    </section>
+  )
+}
+
+/**
+ * Failure rate (%): 28 × team_penalty × auto_factor
+ * team_penalty = 1 + 0.014 × (team_size − 10)²
+ * auto_factor = 1 − 0.75 × √(automation% / 100)
+ * At 100% automation, auto_factor = 0.25.
+ */
+function panel5ChangeFailureAutoFactor(automationPct) {
+  const p = Math.max(0, Math.min(100, automationPct)) / 100
+  return 1 - 0.75 * Math.sqrt(p)
+}
+
+function panel5ChangeFailurePctRaw(teamSize, automationPct) {
+  const teamPenalty = 1 + 0.014 * (teamSize - 10) ** 2
+  const autoFactor = panel5ChangeFailureAutoFactor(automationPct)
+  return 28 * teamPenalty * autoFactor
+}
+
+function panel5ChangeFailurePctClamped(teamSize, automationPct) {
+  return Math.min(
+    30,
+    Math.max(0, panel5ChangeFailurePctRaw(teamSize, automationPct)),
+  )
+}
+
+const PANEL5_CFR_SPECTRUM_MAX = 30
+
+function Panel5ChangeFailureSurface({ teamSize, automationPct }) {
+  const rawPct = panel5ChangeFailurePctRaw(teamSize, automationPct)
+  const pct = panel5ChangeFailurePctClamped(teamSize, automationPct)
+  const teamPenalty = 1 + 0.014 * (teamSize - 10) ** 2
+  const autoFactor = panel5ChangeFailureAutoFactor(automationPct)
+  const autoFactorAt70 = panel5ChangeFailureAutoFactor(70)
+  const onSpectrumGoodEnd = Math.min(
+    100,
+    Math.max(0, (1 - pct / PANEL5_CFR_SPECTRUM_MAX) * 100),
+  )
+
+  return (
+    <section className="panel-card" aria-labelledby="p5-cfr-heading">
+      <h2 id="p5-cfr-heading" className="card-heading">
+        Change Failure Rate (%)
+      </h2>
+
+      <p className="p5-metric-value p5-cfr-outcome" aria-live="polite">
+        <strong>{pct.toFixed(1)}</strong>%
+        {rawPct > PANEL5_CFR_SPECTRUM_MAX ? (
+          <span className="p5-cfr-cap-note">
+            {' '}
+            (capped from {rawPct.toFixed(1)}% at {PANEL5_CFR_SPECTRUM_MAX}% for
+            display)
+          </span>
+        ) : null}
+      </p>
+
+      <p className="p5-cfr-check" aria-label="Model check">
+        Check: 28 × {teamPenalty.toFixed(4)} (team_penalty) ×{' '}
+        {autoFactor.toFixed(4)} (auto_factor) ≈{' '}
+        <strong>{rawPct.toFixed(2)}</strong>% before capping. At 70% automation,
+        auto_factor ≈ {autoFactorAt70.toFixed(3)}; at 100%,{' '}
+        {panel5ChangeFailureAutoFactor(100).toFixed(2)}.
+      </p>
+
+      <div className="p5-cfr-1d-legend">
+        <p className="p5-cfr-1d-title">
+          Colour bar: failure rate (0–{PANEL5_CFR_SPECTRUM_MAX}%)
+        </p>
+        <div
+          className="p5-cfr-1d-track"
+          role="img"
+          aria-label={`Gradient from bright red on the left (high failure rate, bad) to dark green on the right (low failure rate, good). Marker about ${onSpectrumGoodEnd.toFixed(0)} percent toward the good end.`}
+        >
+          <span
+            className="p5-cfr-1d-marker"
+            style={{ left: `${onSpectrumGoodEnd}%` }}
+          />
+        </div>
+        <div className="p5-cfr-1d-axis">
+          <span>
+            {PANEL5_CFR_SPECTRUM_MAX}% — bad (bright red)
+          </span>
+          <span>0% — good (dark green)</span>
+        </div>
+      </div>
+
+      <p className="p5-cfr-sweet-spot">
+        Sweet spot: team <strong>8–12</strong> people, automation{' '}
+        <strong>65–85%</strong> (favourable band in the full surface view; same band
+        for reference here).
+      </p>
+    </section>
+  )
+}
+
 /* ─────────────────────────────────────────────
    PANEL 5 – CI/CD Pipeline Efficiency (cloud migration simulator)
 ───────────────────────────────────────────── */
 function Panel5CiCd({ automationPct, setAutomationPct, teamSize, setTeamSize }) {
-  // Model: baseline deploy frequency = 2/week per 5 devs
-  // automation > 70% unlocks a step-change multiplier
-  const baseFreq = (teamSize / 5) * 2
-  const autoFactor = automationPct >= 70
-    ? 1.5 + ((automationPct - 70) / 30) * 0.4
-    : 0.6 + (automationPct / 70) * 0.4
-  const deployFreq = Math.round(baseFreq * autoFactor * 10) / 10
-
-  // Failure rate: baseline 25%, drops with automation
-  const baseFailure = 25
-  const failureReduction = automationPct >= 70
-    ? 0.4 + ((automationPct - 70) / 30) * 0.2
-    : (automationPct / 70) * 0.4
-  const failureRate = Math.round(Math.max(3, baseFailure * (1 - failureReduction)) * 10) / 10
-
-  let healthStatus
-  let healthClass
-  if (automationPct >= 70) {
-    healthStatus = 'Healthy'
-    healthClass = 'p5-health-green'
-  } else if (automationPct >= 40) {
-    healthStatus = 'Improving'
-    healthClass = 'p5-health-amber'
-  } else {
-    healthStatus = 'At Risk'
-    healthClass = 'p5-health-red'
-  }
-
   return (
     <main className="migration-panel" id="panel5-cicd-pipeline-efficiency">
       <header className="panel-header panel-header-context">
@@ -2533,6 +3010,8 @@ function Panel5CiCd({ automationPct, setAutomationPct, teamSize, setTeamSize }) 
           a step-change improvement.
         </p>
       </header>
+
+      <Panel5ImplementationRoadmap />
 
       <section className="panel-card" aria-labelledby="p5-controls-heading">
         <h2 id="p5-controls-heading" className="card-heading">Controls</h2>
@@ -2563,52 +3042,40 @@ function Panel5CiCd({ automationPct, setAutomationPct, teamSize, setTeamSize }) 
               id="p5-teamsize"
               type="range"
               min="2"
-              max="50"
+              max="30"
               value={teamSize}
               onChange={(e) => setTeamSize(Number(e.target.value))}
               className="p5-range"
               aria-label="Team size"
             />
             <div className="p5-range-labels">
-              <span>2</span><span>26</span><span>50</span>
+              <span>2</span><span>16</span><span>30</span>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="panel-card" aria-labelledby="p5-results-heading">
-        <h2 id="p5-results-heading" className="card-heading">Simulation Results</h2>
-        <div className="p5-results-grid">
-          <div className={`p5-result-tile ${healthClass}`}>
-            <span className="p5-result-label">Deployment Health</span>
-            <span className="p5-result-value p5-health-value">{healthStatus}</span>
-            <span className="p5-result-sub">
-              {automationPct >= 70
-                ? `${automationPct}% automation → step-change unlocked`
-                : `Raise automation above 70% to unlock step-change gains`}
-            </span>
-          </div>
-          <div className="p5-result-tile p5-neutral">
-            <span className="p5-result-label">Deploy Frequency</span>
-            <span className="p5-result-value">{deployFreq}<span className="p5-result-unit">/wk</span></span>
-            <span className="p5-result-sub">Across {teamSize}-person team</span>
-          </div>
-          <div className="p5-result-tile p5-neutral">
-            <span className="p5-result-label">Failure Rate</span>
-            <span className="p5-result-value">{failureRate}<span className="p5-result-unit">%</span></span>
-            <span className="p5-result-sub">Change failure rate vs {baseFailure}% baseline</span>
-          </div>
-        </div>
-      </section>
+      <div className="p5-dora-metrics-grid">
+        <Panel5LeadTimeSurface
+          teamSize={teamSize}
+          automationPct={automationPct}
+        />
 
-      {automationPct >= 70 && (
-        <div className="p5-insight-banner" role="status">
-          <strong>Key insight:</strong> With {automationPct}% automation, deploy frequency is roughly{' '}
-          {Math.round(((deployFreq / (baseFreq * 0.6)) - 1) * 100)}% higher and failure rate is{' '}
-          {Math.round((1 - failureRate / baseFailure) * 100)}% lower compared to a
-          fully manual baseline.
-        </div>
-      )}
+        <Panel5DeployFrequencySurface
+          teamSize={teamSize}
+          automationPct={automationPct}
+        />
+
+        <Panel5RestoreTimeSurface
+          teamSize={teamSize}
+          automationPct={automationPct}
+        />
+
+        <Panel5ChangeFailureSurface
+          teamSize={teamSize}
+          automationPct={automationPct}
+        />
+      </div>
     </main>
   )
 }
