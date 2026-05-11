@@ -1937,7 +1937,7 @@ function Panel4DecisionStructureMermaid() {
 /* ─────────────────────────────────────────────
    PANEL 4 – Customer Service SLA (policyholder-facing excerpt)
 ───────────────────────────────────────────── */
-function Panel4CustomerServiceSla({ slaUptime }) {
+function Panel4CustomerServiceSla() {
   return (
     <div className="p4-sla-document">
       <header className="p4-sla-doc-header">
@@ -2045,13 +2045,6 @@ function Panel4CustomerServiceSla({ slaUptime }) {
           and apply a goodwill credit to their next renewal premium as described
           in Section 5.
         </p>
-        <aside className="p4-sla-simulator-callout">
-          <strong>Migration programme simulator.</strong> Internal resilience
-          settings (Panel 6) currently imply{' '}
-          <strong>{slaUptime.toFixed(3)}%</strong> achieved uptime in the
-          scenario model — useful for comparing engineering posture with this{' '}
-          <strong>99.9%</strong> policyholder commitment.
-        </aside>
       </section>
 
       <section className="p4-sla-section" aria-labelledby="p4-sla-s2">
@@ -2412,7 +2405,7 @@ function Panel4CustomerServiceSla({ slaUptime }) {
 /* ─────────────────────────────────────────────
    PANEL 4 – Governance & SLA
 ───────────────────────────────────────────── */
-function Panel4Governance({ slaUptime }) {
+function Panel4Governance() {
   return (
     <main className="migration-panel" id="panel4-governance">
       <header className="panel-header panel-header-context">
@@ -2484,7 +2477,7 @@ function Panel4Governance({ slaUptime }) {
           Policyholder-facing service standards, response times, remedies, and
           contact channels — aligned with the cloud and AI programme.
         </p>
-        <Panel4CustomerServiceSla slaUptime={slaUptime} />
+        <Panel4CustomerServiceSla />
       </section>
     </main>
   )
@@ -5045,6 +5038,16 @@ function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
       aria-label="ROI chart: cumulative ROI percent and cumulative net cash flow by year"
     >
       <title>Cumulative ROI and cumulative net cash flow</title>
+      <defs>
+        <linearGradient id="panel2GradientCashPos" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="100%" stopColor="#15803d" />
+        </linearGradient>
+        <linearGradient id="panel2GradientCashNeg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fca5a5" />
+          <stop offset="100%" stopColor="#b91c1c" />
+        </linearGradient>
+      </defs>
       <text
         x={padL + innerW / 2}
         y={20}
@@ -5144,6 +5147,7 @@ function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
             width={barW}
             height={barH}
             rx={4}
+            fill={barPos ? 'url(#panel2GradientCashPos)' : 'url(#panel2GradientCashNeg)'}
             className={`chart-bar panel2-roi-chart-bar${barPos ? ' panel2-roi-chart-bar-pos' : ' panel2-roi-chart-bar-neg'}`}
           />
         )
@@ -5816,7 +5820,7 @@ function App() {
   // Panel 5 & 6 state lifted to App for cross-panel data flow
   const [automationPct, setAutomationPct] = useState(50)
   const [teamSize, setTeamSize] = useState(10)
-  const [redundancy, setRedundancy] = useState(3)
+  const [redundancy, setRedundancy] = useState(4)
   const [multiRegion, setMultiRegion] = useState(false)
   const [trainingHours, setTrainingHours] = useState(20)
   const [leadershipEngagement, setLeadershipEngagement] = useState(50)
@@ -6087,13 +6091,6 @@ function App() {
       ),
     )
   }
-
-  // ── Cross-panel derived values ─────────────────────────────────
-  const _uptimeBase = [95.0, 99.0, 99.5, 99.95, 99.99, 99.999]
-  const _uptimeDelta = [0, 0.5, 0.3, 0.04, 0.009, 0.0009]
-  const _p6UptimeSingle = _uptimeBase[redundancy - 1]
-  const _p6UptimeMulti = Math.min(99.999, _p6UptimeSingle + _uptimeDelta[redundancy - 1])
-  const p6Uptime = multiRegion ? _p6UptimeMulti : _p6UptimeSingle
 
   const isHome = activeView === 'home'
   const isBudget = activeView === 'budget'
@@ -6969,7 +6966,7 @@ function App() {
           aria-hidden={!isPanels}
           style={{ display: isPanels ? 'block' : 'none' }}
         >
-          <Panel4Governance slaUptime={p6Uptime} />
+          <Panel4Governance />
         </div>
         </div>
       </div>
