@@ -1205,8 +1205,12 @@
   background: linear-gradient(180deg, #fb923c, #c2410c);
 }
 
-.legend-swatch-p1-opex-combined {
-  background: linear-gradient(180deg, #93c5fd, #60a5fa);
+.legend-swatch-p1-opex-onprem {
+  background: linear-gradient(180deg, #86efac, #16a34a);
+}
+
+.legend-swatch-p1-opex-cloud {
+  background: linear-gradient(180deg, #7dd3fc, #0284c7);
 }
 
 .cost-chart {
@@ -2610,6 +2614,79 @@
   color: var(--dash-accent);
   min-width: 110px;
   text-align: right;
+}
+
+/* Panel 7 – chart + Control row (equal height), full-width cumulative table below */
+.p7s-roi-control-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.p7s-roi-control-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 20px 24px;
+  align-items: stretch;
+}
+
+.p7s-roi-control-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.p7s-roi-chart-card.panel-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.p7s-roi-control-aside {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.p7s-roi-control-card.panel-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.p7s-roi-control-aside .p7s-roi-control-sliders.p5-sliders {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  flex: 1;
+  justify-content: space-evenly;
+  gap: 24px;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.p7s-roi-control-aside .p7s-roi-control-sliders .p5-slider-row {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.p7s-roi-cumulative-table-span.panel-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 960px) {
+  .p7s-roi-control-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Panel 7 – ROI Sensitivity Explorer */

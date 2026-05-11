@@ -615,84 +615,95 @@ const PANEL1_TABLE3_CLOUD_AI_OPEX_ROWS = [
   {
     t: 'l',
     line: 'Cloud Compute — Reserved Instances (EC2/Azure VM)',
-    stabilized: 900_000,
-    y1: 270_000,
-    y2: 675_000,
-    y3: 900_000,
-    y4: 927_000,
-    y5: 954_810,
-    fiveYr: 3_726_810,
+    stabilized: 1_800_000,
+    y1: 540_000,
+    y2: 1_350_000,
+    y3: 1_800_000,
+    y4: 1_854_000,
+    y5: 1_909_620,
+    fiveYr: 7_453_620,
   },
   {
     t: 'l',
     line: 'Cloud Storage & Backup (S3/Blob + Backup)',
-    stabilized: 240_000,
-    y1: 72_000,
-    y2: 180_000,
-    y3: 240_000,
-    y4: 247_200,
-    y5: 254_616,
-    fiveYr: 993_816,
+    stabilized: 480_000,
+    y1: 288_000,
+    y2: 720_000,
+    y3: 960_000,
+    y4: 988_800,
+    y5: 1_018_464,
+    fiveYr: 3_975_264,
   },
   {
     t: 'l',
     line: 'Cloud Database Services (RDS, Cosmos, Managed DB)',
-    stabilized: 360_000,
-    y1: 108_000,
-    y2: 270_000,
-    y3: 360_000,
-    y4: 370_800,
-    y5: 381_924,
-    fiveYr: 1_490_724,
+    stabilized: 720_000,
+    y1: 432_000,
+    y2: 1_080_000,
+    y3: 1_440_000,
+    y4: 1_483_200,
+    y5: 1_527_696,
+    fiveYr: 5_962_896,
   },
   {
     t: 'l',
     line: 'Cloud Networking & CDN (VPN, Load Balancer, CDN)',
-    stabilized: 180_000,
-    y1: 54_000,
-    y2: 135_000,
-    y3: 180_000,
-    y4: 185_400,
-    y5: 190_962,
-    fiveYr: 745_362,
+    stabilized: 360_000,
+    y1: 216_000,
+    y2: 540_000,
+    y3: 720_000,
+    y4: 741_600,
+    y5: 763_848,
+    fiveYr: 2_981_448,
   },
   {
     t: 'l',
     line: 'Cloud Security Services (WAF, Shield, GuardDuty)',
-    stabilized: 200_000,
-    y1: 60_000,
-    y2: 150_000,
-    y3: 200_000,
-    y4: 206_000,
-    y5: 212_180,
-    fiveYr: 828_180,
+    stabilized: 400_000,
+    y1: 240_000,
+    y2: 600_000,
+    y3: 800_000,
+    y4: 824_000,
+    y5: 848_720,
+    fiveYr: 3_312_720,
   },
   {
     t: 'l',
     line: 'Cloud Monitoring & Observability (Datadog, CW)',
-    stabilized: 120_000,
-    y1: 36_000,
-    y2: 90_000,
-    y3: 120_000,
-    y4: 123_600,
-    y5: 127_308,
-    fiveYr: 496_908,
+    stabilized: 240_000,
+    y1: 144_000,
+    y2: 360_000,
+    y3: 480_000,
+    y4: 494_400,
+    y5: 509_232,
+    fiveYr: 1_987_632,
   },
   { t: 'g', label: 'SaaS & Platform Licenses' },
   {
     t: 'l',
     line: 'Core Insurance Platform SaaS (Policy/Claims/Billing)',
-    stabilized: 1_200_000,
-    y1: 360_000,
-    y2: 900_000,
-    y3: 1_200_000,
-    y4: 1_236_000,
-    y5: 1_273_080,
-    fiveYr: 4_969_080,
+    stabilized: 2_400_000,
+    y1: 720_000,
+    y2: 1_800_000,
+    y3: 2_400_000,
+    y4: 2_472_000,
+    y5: 2_546_160,
+    fiveYr: 9_938_160,
   },
   {
     t: 'l',
     line: 'Collaboration Suite — M365 E3 ($30/user × 1,000)',
+    stabilized: 720_000,
+    y1: 216_000,
+    y2: 540_000,
+    y3: 720_000,
+    y4: 741_600,
+    y5: 763_848,
+    fiveYr: 2_981_448,
+  },
+  {
+    t: 'l',
+    line: 'CRM Platform SaaS (Salesforce/ServiceNow)',
     stabilized: 360_000,
     y1: 108_000,
     y2: 270_000,
@@ -703,41 +714,18 @@ const PANEL1_TABLE3_CLOUD_AI_OPEX_ROWS = [
   },
   {
     t: 'l',
-    line: 'CRM Platform SaaS (Salesforce/ServiceNow)',
-    stabilized: 180_000,
-    y1: 54_000,
-    y2: 135_000,
-    y3: 180_000,
-    y4: 185_400,
-    y5: 190_962,
-    fiveYr: 745_362,
-  },
-  {
-    t: 'l',
     line: 'DevOps & CI/CD Tools (GitHub, Jira)',
-    stabilized: 80_000,
-    y1: 24_000,
-    y2: 60_000,
-    y3: 80_000,
-    y4: 82_400,
-    y5: 84_872,
-    fiveYr: 331_272,
+    stabilized: 160_000,
+    y1: 48_000,
+    y2: 120_000,
+    y3: 160_000,
+    y4: 164_800,
+    y5: 169_744,
+    fiveYr: 662_544,
   },
   {
     t: 'l',
     line: 'Security SaaS (CASB, SIEM-as-a-Service, EDR)',
-    stabilized: 240_000,
-    y1: 72_000,
-    y2: 180_000,
-    y3: 240_000,
-    y4: 247_200,
-    y5: 254_616,
-    fiveYr: 993_816,
-  },
-  { t: 'g', label: 'AI Platform & Services' },
-  {
-    t: 'l',
-    line: 'LLM API Consumption (GPT/Claude/Gemini)',
     stabilized: 480_000,
     y1: 144_000,
     y2: 360_000,
@@ -746,9 +734,32 @@ const PANEL1_TABLE3_CLOUD_AI_OPEX_ROWS = [
     y5: 509_232,
     fiveYr: 1_987_632,
   },
+  { t: 'g', label: 'AI Platform & Services' },
+  {
+    t: 'l',
+    line: 'LLM API Consumption (GPT/Claude/Gemini)',
+    stabilized: 960_000,
+    y1: 288_000,
+    y2: 720_000,
+    y3: 960_000,
+    y4: 988_800,
+    y5: 1_018_464,
+    fiveYr: 3_975_264,
+  },
   {
     t: 'l',
     line: 'AI Platform Annual Subscription',
+    stabilized: 600_000,
+    y1: 180_000,
+    y2: 450_000,
+    y3: 600_000,
+    y4: 618_000,
+    y5: 636_540,
+    fiveYr: 2_484_540,
+  },
+  {
+    t: 'l',
+    line: 'AI Model Maintenance & Fine-Tuning',
     stabilized: 300_000,
     y1: 90_000,
     y2: 225_000,
@@ -759,25 +770,14 @@ const PANEL1_TABLE3_CLOUD_AI_OPEX_ROWS = [
   },
   {
     t: 'l',
-    line: 'AI Model Maintenance & Fine-Tuning',
-    stabilized: 150_000,
-    y1: 45_000,
-    y2: 112_500,
-    y3: 150_000,
-    y4: 154_500,
-    y5: 159_135,
-    fiveYr: 621_135,
-  },
-  {
-    t: 'l',
     line: 'AI Chatbot Hosting & Infrastructure',
-    stabilized: 120_000,
-    y1: 36_000,
-    y2: 90_000,
-    y3: 120_000,
-    y4: 123_600,
-    y5: 127_308,
-    fiveYr: 496_908,
+    stabilized: 240_000,
+    y1: 72_000,
+    y2: 180_000,
+    y3: 240_000,
+    y4: 247_200,
+    y5: 254_616,
+    fiveYr: 993_816,
   },
   { t: 'g', label: 'IT Personnel (Cloud-Optimized)' },
   {
@@ -1325,8 +1325,8 @@ function buildBassDiffusionCurve(marketingSpend, networkEffect, marketType) {
 }
 
 /**
- * Panel 1 — Cost by year: per fiscal year, baseline on-prem bar + migration total
- * as a stacked bar (CAPEX bottom, combined OPEX top).
+ * Panel 1 — Cost by year: baseline on-prem bar + migration stack
+ * (CAPEX bottom, OPEX on-prem middle, OPEX Cloud+AI top).
  */
 function Panel1CostByYearChart({ rows, baselineOnPremByYear }) {
   const w = 640
@@ -1360,9 +1360,9 @@ function Panel1CostByYearChart({ rows, baselineOnPremByYear }) {
       viewBox={`0 0 ${w} ${h}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label="Cost by year: baseline on-prem OPEX versus migration CAPEX plus combined OPEX"
+      aria-label="Cost by year: baseline on-prem OPEX versus migration CAPEX plus on-prem OPEX and Cloud+AI OPEX stacked"
     >
-      <title>Annual cost — baseline versus migration stacked total</title>
+      <title>Annual cost — baseline versus migration CAPEX and split operating OPEX</title>
       <defs>
         <linearGradient id="panel1GradientBaselinePrem" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#3b82f6" />
@@ -1372,9 +1372,13 @@ function Panel1CostByYearChart({ rows, baselineOnPremByYear }) {
           <stop offset="0%" stopColor="#fb923c" />
           <stop offset="100%" stopColor="#c2410c" />
         </linearGradient>
-        <linearGradient id="panel1GradientOpexCombinedBar" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#93c5fd" />
-          <stop offset="100%" stopColor="#60a5fa" />
+        <linearGradient id="panel1GradientOpexOnPremBar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#86efac" />
+          <stop offset="100%" stopColor="#16a34a" />
+        </linearGradient>
+        <linearGradient id="panel1GradientOpexCloudBar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7dd3fc" />
+          <stop offset="100%" stopColor="#0284c7" />
         </linearGradient>
       </defs>
       {[0, 0.25, 0.5, 0.75, 1].map((t) => {
@@ -1408,9 +1412,11 @@ function Panel1CostByYearChart({ rows, baselineOnPremByYear }) {
         const baselineVal = baselineOnPremByYear[i] ?? 0
         const hhBase = innerH * (baselineVal / maxY)
         const hhCap = innerH * (row.capex / maxY)
-        const hhOp = innerH * (row.opex / maxY)
+        const hhOpOn = innerH * ((row.opexOnPrem ?? 0) / maxY)
+        const hhOpCloud = innerH * ((row.opexCloudAi ?? 0) / maxY)
         const yCapTop = yBaseline - hhCap
-        const yOpTop = yCapTop - hhOp
+        const yOpOnTop = yCapTop - hhOpOn
+        const yOpCloudTop = yOpOnTop - hhOpCloud
         return (
           <g key={row.year}>
             <rect
@@ -1433,12 +1439,21 @@ function Panel1CostByYearChart({ rows, baselineOnPremByYear }) {
             />
             <rect
               x={xStack}
-              y={yOpTop}
+              y={yOpOnTop}
               width={barW}
-              height={Math.max(0, hhOp)}
+              height={Math.max(0, hhOpOn)}
               rx={3}
-              className="chart-bar panel1-chart-bar-opex"
-              fill="url(#panel1GradientOpexCombinedBar)"
+              className="chart-bar panel1-chart-bar-opex-onprem"
+              fill="url(#panel1GradientOpexOnPremBar)"
+            />
+            <rect
+              x={xStack}
+              y={yOpCloudTop}
+              width={barW}
+              height={Math.max(0, hhOpCloud)}
+              rx={3}
+              className="chart-bar panel1-chart-bar-opex-cloud"
+              fill="url(#panel1GradientOpexCloudBar)"
             />
             <text
               x={groupCx}
@@ -3544,7 +3559,14 @@ function Panel7RoiSensitivity({
   setDataAvailability,
   dataReliability,
   setDataReliability,
+  cumulativeRoiTable,
 }) {
+  /** Panel 7-only sandbox controls (not wired to other panels or curves yet). */
+  const [controlAiInvestmentUsd, setControlAiInvestmentUsd] =
+    useState(1_000_000)
+  const [controlDataQualityPct, setControlDataQualityPct] = useState(80)
+  const [panel7RoiTableVisible, setPanel7RoiTableVisible] = useState(false)
+
   const { points, totals } = useMemo(
     () =>
       buildAiCumulativeRoiCurve({
@@ -3601,6 +3623,92 @@ function Panel7RoiSensitivity({
           5-year cumulative ROI on the cloud migration project.
         </p>
       </header>
+
+      <div className="p7s-roi-control-stack">
+        <div className="p7s-roi-control-layout">
+          <div className="p7s-roi-control-main">
+            <CumulativeRoiChartCard
+              cumulativeRoiTable={cumulativeRoiTable}
+              idPrefix="panel7"
+              cumulativeRoiTableVisible={panel7RoiTableVisible}
+              setCumulativeRoiTableVisible={setPanel7RoiTableVisible}
+              sectionClassName="panel-card p7s-roi-chart-card"
+            />
+          </div>
+          <aside className="p7s-roi-control-aside" aria-label="Panel 7 controls">
+            <section
+              className="panel-card p7s-roi-control-card"
+              aria-labelledby="p7s-control-heading"
+            >
+              <h2 id="p7s-control-heading" className="card-heading">
+                Control
+              </h2>
+              <div className="p5-sliders p7s-roi-control-sliders">
+                <div className="p5-slider-row">
+                  <label
+                    className="p5-slider-label"
+                    htmlFor="p7s-control-ai-investment"
+                  >
+                    AI Investment:{' '}
+                    <strong>{formatCurrency(controlAiInvestmentUsd)}</strong>
+                  </label>
+                  <input
+                    id="p7s-control-ai-investment"
+                    type="range"
+                    min="0"
+                    max="2000000"
+                    step="100000"
+                    value={controlAiInvestmentUsd}
+                    onChange={(e) =>
+                      setControlAiInvestmentUsd(Number(e.target.value))
+                    }
+                    className="p5-range"
+                    aria-label="AI investment in dollars, zero to two million"
+                  />
+                  <div className="p5-range-labels">
+                    <span>$0</span>
+                    <span>$1000K</span>
+                    <span>$2000K</span>
+                  </div>
+                </div>
+                <div className="p5-slider-row">
+                  <label
+                    className="p5-slider-label"
+                    htmlFor="p7s-control-data-quality"
+                  >
+                    Data Quality: <strong>{controlDataQualityPct}%</strong>
+                  </label>
+                  <input
+                    id="p7s-control-data-quality"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={controlDataQualityPct}
+                    onChange={(e) =>
+                      setControlDataQualityPct(Number(e.target.value))
+                    }
+                    className="p5-range"
+                    aria-label="Data quality percent"
+                  />
+                  <div className="p5-range-labels">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+        {panel7RoiTableVisible ? (
+          <CumulativeRoiTableCard
+            cumulativeRoiTable={cumulativeRoiTable}
+            idPrefix="panel7"
+            sectionClassName="panel-card p7s-roi-cumulative-table-span"
+          />
+        ) : null}
+      </div>
 
       <section className="panel-card" aria-labelledby="p7s-ai-heading">
         <h2 id="p7s-ai-heading" className="card-heading">
@@ -4564,17 +4672,6 @@ const PANEL2_TABLE4_TANGIBLE_ROWS = [
   { t: 'g', label: 'Productivity Gains' },
   {
     t: 'l',
-    line: 'Workforce Productivity Value (12% efficiency gain × 30% captured, 1,000 FTE × $85K avg)',
-    stabilized: 3_060_000,
-    y1: 612_000,
-    y2: 1_683_000,
-    y3: 3_060_000,
-    y4: 3_304_800,
-    y5: 3_427_200,
-    fiveYr: 12_087_000,
-  },
-  {
-    t: 'l',
     line: 'Faster Software Deployment — DevOps Velocity (2× release cadence)',
     stabilized: 300_000,
     y1: 60_000,
@@ -4598,17 +4695,6 @@ const PANEL2_TABLE4_TANGIBLE_ROWS = [
   { t: 'g', label: 'Revenue Enablement' },
   {
     t: 'l',
-    line: 'New Digital Channel Revenue (Digital-First Policies)',
-    stabilized: 2_500_000,
-    y1: 250_000,
-    y2: 1_000_000,
-    y3: 2_500_000,
-    y4: 2_750_000,
-    y5: 3_000_000,
-    fiveYr: 9_500_000,
-  },
-  {
-    t: 'l',
     line: 'Faster Claims Processing — Customer Retention Value',
     stabilized: 1_000_000,
     y1: 100_000,
@@ -4619,42 +4705,19 @@ const PANEL2_TABLE4_TANGIBLE_ROWS = [
     fiveYr: 3_800_000,
   },
   {
-    t: 'l',
-    line: 'AI-Driven Cross-Sell & Upsell Revenue',
-    stabilized: 750_000,
-    y1: 75_000,
-    y2: 300_000,
-    y3: 750_000,
-    y4: 825_000,
-    y5: 900_000,
-    fiveYr: 2_850_000,
-  },
-  {
     t: 'total',
     line: 'TOTAL TANGIBLE RETURNS',
-    y1: 1_538_504,
-    y2: 4_762_136,
-    y3: 9_817_520,
-    y4: 10_687_922,
-    y5: 11_335_622,
-    fiveYr: 38_141_704,
+    y1: 601_504,
+    y2: 1_779_136,
+    y3: 3_507_520,
+    y4: 3_808_122,
+    y5: 4_008_422,
+    fiveYr: 13_704_704,
   },
 ]
 
 /** Table 5 — Intangible Returns (v2 Corrected). */
 const PANEL2_TABLE5_INTANGIBLE_ROWS = [
-  { t: 'g', label: 'Brand & Reputation' },
-  {
-    t: 'l',
-    line: 'NPS Improvement → Revenue Uplift (2% × $250M × 40% confidence weight)',
-    method: 'Incremental Earnings',
-    y1: 500_000,
-    y2: 1_200_000,
-    y3: 2_000_000,
-    y4: 2_200_000,
-    y5: 2_400_000,
-    fiveYr: 8_300_000,
-  },
   { t: 'g', label: 'Regulatory Trust' },
   {
     t: 'l',
@@ -4669,17 +4732,6 @@ const PANEL2_TABLE5_INTANGIBLE_ROWS = [
   },
   {
     t: 'l',
-    line: 'Faster Regulatory Approval → Earlier Product Revenue (2 products × $500K × 2 months)',
-    method: 'Cost Avoidance',
-    y1: null,
-    y2: 400_000,
-    y3: 2_000_000,
-    y4: 2_000_000,
-    y5: 2_000_000,
-    fiveYr: 6_400_000,
-  },
-  {
-    t: 'l',
     line: 'Reduced Enforcement Action Probability (15% → 5% × $3M avg penalty)',
     method: 'Cost Avoidance',
     y1: 140_000,
@@ -4689,41 +4741,7 @@ const PANEL2_TABLE5_INTANGIBLE_ROWS = [
     y5: 480_000,
     fiveYr: 1_580_000,
   },
-  { t: 'g', label: 'Talent Attraction & Retention' },
-  {
-    t: 'l',
-    line: 'IT Staff Turnover Reduction (18% → 10% × 80 FTE × 1.5× replacement cost)',
-    method: 'Cost Avoidance',
-    y1: 200_000,
-    y2: 700_000,
-    y3: 1_152_000,
-    y4: 1_200_000,
-    y5: 1_248_000,
-    fiveYr: 4_500_000,
-  },
-  {
-    t: 'l',
-    line: 'Reduced Contractor & Agency Reliance',
-    method: 'Cost Avoidance',
-    y1: null,
-    y2: null,
-    y3: 398_000,
-    y4: 400_000,
-    y5: 402_000,
-    fiveYr: 1_200_000,
-  },
   { t: 'g', label: 'Innovation Velocity' },
-  {
-    t: 'l',
-    line: 'Earlier Product Launch Revenue (3-month acceleration × 2 products/yr × $2M revenue)',
-    method: 'Incremental Earnings',
-    y1: null,
-    y2: 300_000,
-    y3: 1_000_000,
-    y4: 1_200_000,
-    y5: 1_400_000,
-    fiveYr: 3_900_000,
-  },
   {
     t: 'l',
     line: '20% More Features Shipped → Competitive Retention Value',
@@ -4734,29 +4752,6 @@ const PANEL2_TABLE5_INTANGIBLE_ROWS = [
     y4: 600_000,
     y5: 700_000,
     fiveYr: 1_800_000,
-  },
-  { t: 'g', label: 'Data-Driven Decision Making' },
-  {
-    t: 'l',
-    line: 'Loss Ratio Improvement via AI Underwriting (1.5 pts × $250M GWP)',
-    method: 'Incremental Earnings',
-    y1: null,
-    y2: 375_000,
-    y3: 3_750_000,
-    y4: 3_900_000,
-    y5: 4_062_500,
-    fiveYr: 12_087_500,
-  },
-  {
-    t: 'l',
-    line: 'AI Fraud Detection — Claims Leakage Reduction (0.5% of claims base)',
-    method: 'Incremental Earnings',
-    y1: null,
-    y2: 125_000,
-    y3: 850_000,
-    y4: 900_000,
-    y5: 937_500,
-    fiveYr: 2_812_500,
   },
   { t: 'g', label: 'Business Resilience' },
   {
@@ -4819,12 +4814,12 @@ const PANEL2_TABLE5_INTANGIBLE_ROWS = [
   {
     t: 'total',
     line: 'TOTAL INTANGIBLE RETURNS',
-    y1: 1_100_000,
-    y2: 4_400_000,
-    y3: 15_297_480,
-    y4: 16_602_480,
-    y5: 17_752_480,
-    fiveYr: 55_152_440,
+    y1: 400_000,
+    y2: 1_300_000,
+    y3: 4_147_480,
+    y4: 4_802_480,
+    y5: 5_302_480,
+    fiveYr: 15_952_440,
   },
 ]
 
@@ -4834,33 +4829,33 @@ const PANEL2_TABLE6_TI_SUMMARY_ROWS = [
     t: 'd',
     detailKey: 'tangible',
     line: 'Tangible Returns (Revenue & Productivity)',
-    y1: 1_538_504,
-    y2: 4_762_136,
-    y3: 9_817_520,
-    y4: 10_687_922,
-    y5: 11_335_622,
-    fiveYr: 38_141_704,
+    y1: 601_504,
+    y2: 1_779_136,
+    y3: 3_507_520,
+    y4: 3_808_122,
+    y5: 4_008_422,
+    fiveYr: 13_704_704,
   },
   {
     t: 'd',
     detailKey: 'intangible',
     line: 'Intangible Returns (Quantified)',
-    y1: 1_100_000,
-    y2: 4_400_000,
-    y3: 15_297_480,
-    y4: 16_602_480,
-    y5: 17_752_480,
-    fiveYr: 55_152_440,
+    y1: 400_000,
+    y2: 1_300_000,
+    y3: 4_147_480,
+    y4: 4_802_480,
+    y5: 5_302_480,
+    fiveYr: 15_952_440,
   },
   {
     t: 'total',
     line: 'Total returns',
-    y1: 2_638_504,
-    y2: 9_162_136,
-    y3: 25_115_000,
-    y4: 27_290_402,
-    y5: 29_088_102,
-    fiveYr: 93_294_144,
+    y1: 1_001_504,
+    y2: 3_079_136,
+    y3: 7_655_000,
+    y4: 8_610_602,
+    y5: 9_310_902,
+    fiveYr: 29_657_144,
   },
 ]
 
@@ -4886,7 +4881,30 @@ function panel2IntangibleReturnsByYear() {
     : YEARS.map(() => 0)
 }
 
-/** B = baseline − (on-prem + cloud OPEX) + tangible + intangible; C = B − CAPEX */
+/** Reference row for the cumulative ROI table only (not used in Total Returns / net math). */
+const PANEL2_CUMULATIVE_ROI_TABLE_ONPREM_BASELINE_Y1_USD = 20_264_400
+const PANEL2_CUMULATIVE_ROI_TABLE_ONPREM_BASELINE_GROWTH = 0.03
+
+function panel2CumulativeRoiTableBaselineOnPremOpexDisplay() {
+  let v = PANEL2_CUMULATIVE_ROI_TABLE_ONPREM_BASELINE_Y1_USD
+  return YEARS.map((_, i) => {
+    if (i > 0) {
+      v = Math.round(v * (1 + PANEL2_CUMULATIVE_ROI_TABLE_ONPREM_BASELINE_GROWTH))
+    }
+    return v
+  })
+}
+
+/**
+ * Total returns = baseline − (on-prem + cloud OPEX) + tangible + intangible;
+ * net = total returns − CAPEX. Table C/D = Panel 1 OPEX; E = C + D − baseline B row;
+ * F = max(0, E) per year (5yr-Total = sum of F’s yearly values);
+ * G row = A + F per year (5yr-Total = sum of those yearly values);
+ * Cumul. Inv = running sum of G by year (5yr-Total = value at Year 5);
+ * H = tangible + intangible yearly totals (Tables 4–5); modeled total = baseline − (on-prem+cloud) + H;
+ * display I = H − E − A (table letters). Cumul. Net Cash Flow = running sum of I.
+ * Cumulative ROI % = Cumul. Net Cash Flow ÷ Cumul. Inv each year (and 5yr-Total).
+ */
 function buildPanel2CumulativeRoiSeries(
   capexByYear,
   baselineOnPremByYear,
@@ -4895,6 +4913,12 @@ function buildPanel2CumulativeRoiSeries(
   tangibleReturnsByYear,
   intangibleReturnsByYear,
 ) {
+  const onPremiseOpex = YEARS.map((_, i) =>
+    Math.round(onPremiseOpexByYear[i] ?? 0),
+  )
+  const cloudAiOpex = YEARS.map((_, i) =>
+    Math.round(cloudAiOpexByYear[i] ?? 0),
+  )
   const A = YEARS.map((_, i) => Math.round(capexByYear[i] ?? 0))
   const B = YEARS.map((_, i) => {
     const base = baselineOnPremByYear[i] ?? 0
@@ -4907,7 +4931,6 @@ function buildPanel2CumulativeRoiSeries(
   const net = YEARS.map((_, i) => B[i] - A[i])
   const cumulCapex = []
   const cumulNet = []
-  const cumulativeRoiFraction = []
   let runCapex = 0
   let runNet = 0
   YEARS.forEach((_, i) => {
@@ -4915,25 +4938,83 @@ function buildPanel2CumulativeRoiSeries(
     cumulCapex.push(runCapex)
     runNet += net[i]
     cumulNet.push(runNet)
-    cumulativeRoiFraction.push(
-      runCapex !== 0 && Number.isFinite(runNet / runCapex)
-        ? runNet / runCapex
-        : null,
-    )
   })
   const totalCapex = A.reduce((s, v) => s + v, 0)
   const totalB = B.reduce((s, v) => s + v, 0)
   const totalNet = net.reduce((s, v) => s + v, 0)
   const finalCumulCapex = cumulCapex[YEARS.length - 1] ?? 0
   const finalCumulNet = cumulNet[YEARS.length - 1] ?? 0
+
+  const baselineOnPremOpexDisplay = panel2CumulativeRoiTableBaselineOnPremOpexDisplay()
+  const totalBaselineOnPremOpexDisplay = baselineOnPremOpexDisplay.reduce(
+    (s, v) => s + v,
+    0,
+  )
+  const totalOnPremiseOpex = onPremiseOpex.reduce((s, v) => s + v, 0)
+  const totalCloudAiOpex = cloudAiOpex.reduce((s, v) => s + v, 0)
+  const opexNetSavings = YEARS.map((_, i) =>
+    Math.round(
+      onPremiseOpex[i] + cloudAiOpex[i] - baselineOnPremOpexDisplay[i],
+    ),
+  )
+  const totalOpexNetSavings = opexNetSavings.reduce((s, v) => s + v, 0)
+  const positiveE = opexNetSavings.map((v) => (v > 0 ? v : 0))
+  const totalPositiveE = positiveE.reduce((s, v) => s + v, 0)
+  const invAPlusF = YEARS.map((_, i) => A[i] + positiveE[i])
+  const totalInvAPlusF = invAPlusF.reduce((s, v) => s + v, 0)
+  const cumulInv = []
+  let runInv = 0
+  YEARS.forEach((_, i) => {
+    runInv += invAPlusF[i]
+    cumulInv.push(runInv)
+  })
+  const finalCumulInv = cumulInv[YEARS.length - 1] ?? 0
+
+  const tangIntangReturns = YEARS.map((_, i) =>
+    Math.round(
+      (tangibleReturnsByYear[i] ?? 0) + (intangibleReturnsByYear[i] ?? 0),
+    ),
+  )
+  const totalTangIntangReturns = tangIntangReturns.reduce((s, v) => s + v, 0)
+  const netCashFlowHMinusEMinusA = YEARS.map((_, i) =>
+    Math.round(tangIntangReturns[i] - opexNetSavings[i] - A[i]),
+  )
+  const totalNetCashFlowHMinusEMinusA = netCashFlowHMinusEMinusA.reduce(
+    (s, v) => s + v,
+    0,
+  )
+  const cumulNetCashFlowI = []
+  let runCumulNetI = 0
+  YEARS.forEach((_, i) => {
+    runCumulNetI += netCashFlowHMinusEMinusA[i]
+    cumulNetCashFlowI.push(runCumulNetI)
+  })
+  const finalCumulNetCashFlowI = cumulNetCashFlowI[YEARS.length - 1] ?? 0
+
+  const cumulativeRoiFraction = YEARS.map((_, i) => {
+    const denom = cumulInv[i] ?? 0
+    const num = cumulNetCashFlowI[i] ?? 0
+    return denom !== 0 && Number.isFinite(num / denom) ? num / denom : null
+  })
   const fiveYrRoiFrac =
-    finalCumulCapex !== 0 && Number.isFinite(finalCumulNet / finalCumulCapex)
-      ? finalCumulNet / finalCumulCapex
+    finalCumulInv !== 0 &&
+    Number.isFinite(finalCumulNetCashFlowI / finalCumulInv)
+      ? finalCumulNetCashFlowI / finalCumulInv
       : null
 
   return {
     capex: A,
     cumulCapex,
+    baselineOnPremOpexDisplay,
+    onPremiseOpex,
+    cloudAiOpex,
+    opexNetSavings,
+    positiveE,
+    invAPlusF,
+    cumulInv,
+    tangIntangReturns,
+    netCashFlowHMinusEMinusA,
+    cumulNetCashFlowI,
     totalReturns: B,
     netCashFlow: net,
     cumulNet,
@@ -4941,6 +5022,16 @@ function buildPanel2CumulativeRoiSeries(
     totals: {
       capex: totalCapex,
       cumulCapex: finalCumulCapex,
+      baselineOnPremOpexDisplay: totalBaselineOnPremOpexDisplay,
+      onPremiseOpex: totalOnPremiseOpex,
+      cloudAiOpex: totalCloudAiOpex,
+      opexNetSavings: totalOpexNetSavings,
+      positiveE: totalPositiveE,
+      invAPlusF: totalInvAPlusF,
+      cumulInv: finalCumulInv,
+      tangIntangReturns: totalTangIntangReturns,
+      netCashFlowHMinusEMinusA: totalNetCashFlowHMinusEMinusA,
+      cumulNetCashFlowI: finalCumulNetCashFlowI,
       totalReturns: totalB,
       netCashFlow: totalNet,
       cumulNet: finalCumulNet,
@@ -4954,8 +5045,14 @@ function formatPanel2CumulativeRoiRatio(fraction) {
   return `${(fraction * 100).toFixed(1)}%`
 }
 
-/** Panel 2 — dual axis: cumulative ROI % (left) vs cumul. net cash flow bars (right scale = $ million). */
-function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
+/** Panel 2 — dual axis: cumulative ROI % (left) vs cumul. net cash flow (I) bars (right scale = $ million). */
+function Panel2RoiDualAxisChart({
+  cumulativeRoiTable,
+  /** Unique prefix for SVG gradient ids when multiple charts mount (e.g. Panel 2 + Panel 7). */
+  svgGradientIdPrefix = 'panel2-dual-roi',
+}) {
+  const gradPos = `${svgGradientIdPrefix}-cash-pos`
+  const gradNeg = `${svgGradientIdPrefix}-cash-neg`
   const w = 700
   const h = 372
   const padL = 88
@@ -4970,7 +5067,7 @@ function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
     return f != null && Number.isFinite(f) ? f * 100 : null
   })
   const cumulNetM = YEARS.map(
-    (_, i) => (cumulativeRoiTable.cumulNet[i] ?? 0) / 1_000_000,
+    (_, i) => (cumulativeRoiTable.cumulNetCashFlowI[i] ?? 0) / 1_000_000,
   )
 
   const roiFinite = roiPctSeries.filter((v) => v != null && Number.isFinite(v))
@@ -5039,11 +5136,11 @@ function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
     >
       <title>Cumulative ROI and cumulative net cash flow</title>
       <defs>
-        <linearGradient id="panel2GradientCashPos" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradPos} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#4ade80" />
           <stop offset="100%" stopColor="#15803d" />
         </linearGradient>
-        <linearGradient id="panel2GradientCashNeg" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradNeg} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#fca5a5" />
           <stop offset="100%" stopColor="#b91c1c" />
         </linearGradient>
@@ -5147,7 +5244,7 @@ function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
             width={barW}
             height={barH}
             rx={4}
-            fill={barPos ? 'url(#panel2GradientCashPos)' : 'url(#panel2GradientCashNeg)'}
+            fill={barPos ? `url(#${gradPos})` : `url(#${gradNeg})`}
             className={`chart-bar panel2-roi-chart-bar${barPos ? ' panel2-roi-chart-bar-pos' : ' panel2-roi-chart-bar-neg'}`}
           />
         )
@@ -5171,6 +5268,307 @@ function Panel2RoiDualAxisChart({ cumulativeRoiTable }) {
         />
       ))}
     </svg>
+  )
+}
+
+function CumulativeRoiChartCard({
+  cumulativeRoiTable,
+  idPrefix,
+  cumulativeRoiTableVisible,
+  setCumulativeRoiTableVisible,
+  sectionClassName = 'panel-card',
+}) {
+  const chartHeadingId = `${idPrefix}-roi-chart-heading`
+  const svgGradientIdPrefix = `${idPrefix}-dual-roi`
+
+  return (
+    <section
+      className={sectionClassName}
+      aria-labelledby={chartHeadingId}
+    >
+      <div className="panel2-roi-chart-header-row">
+        <h2
+          id={chartHeadingId}
+          className="card-heading panel2-roi-chart-heading"
+        >
+          ROI chart
+        </h2>
+        <div className="panel2-roi-chart-toggle-wrap">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={cumulativeRoiTableVisible}
+            aria-label={
+              cumulativeRoiTableVisible
+                ? 'Hide cumulative ROI table'
+                : 'Show cumulative ROI table'
+            }
+            className={`p6-toggle${cumulativeRoiTableVisible ? ' p6-toggle-on' : ''}`}
+            onClick={() =>
+              setCumulativeRoiTableVisible((v) => !v)
+            }
+          >
+            <span className="p6-toggle-knob" />
+          </button>
+        </div>
+      </div>
+      <p className="card-lead">
+        Same numbers as <strong>Cumulative ROI table</strong>
+        {' '}(use the toggle to show it){' '}:
+        cumulative ROI (<strong>%</strong>, left scale, line) versus{' '}
+        <strong>Cumul. Net Cash Flow</strong> (<strong>million USD</strong>, right
+        scale, bars).
+      </p>
+      <div className="chart-legend panel2-roi-chart-legend">
+        <span className="legend-item">
+          <span className="legend-line panel2-roi-chart-legend-line" />{' '}
+          Cumulative ROI
+        </span>
+        <span className="legend-item">
+          <span className="legend-swatch panel2-roi-chart-legend-swatch" />{' '}
+          Cumul. Net Cash Flow
+        </span>
+      </div>
+      <Panel2RoiDualAxisChart
+        cumulativeRoiTable={cumulativeRoiTable}
+        svgGradientIdPrefix={svgGradientIdPrefix}
+      />
+    </section>
+  )
+}
+
+function CumulativeRoiTableCard({
+  cumulativeRoiTable,
+  idPrefix,
+  sectionClassName = 'panel-card',
+}) {
+  const tableHeadingId = `${idPrefix}-cumulative-roi-heading`
+
+  return (
+    <section
+      className={sectionClassName}
+      aria-labelledby={tableHeadingId}
+    >
+      <h2 id={tableHeadingId} className="card-heading">
+        Cumulative ROI table
+      </h2>
+      <p className="card-lead">
+        <strong>A</strong> is modeled CAPEX (Panel&nbsp;1 Table&nbsp;1).{' '}
+        <strong>B. On-Prem OPEX(Baseline)</strong> is a fixed reference track
+        only: $20,264,400 in Year&nbsp;1, then each later year is the prior
+        year &times;103% (rounded); it is not used in the Total Returns or net
+        cash flow math. <strong>C. On-Premise OPEX</strong> and{' '}
+        <strong>D. Cloud + AI OPEX</strong> match Panel&nbsp;1{' '}
+        <strong>OPEX (On-Premise)</strong> and <strong>OPEX (Cloud + AI)</strong>{' '}
+        by year. <strong>E. OPEX Net losts (C+D-B)</strong> =
+        <strong>C</strong> + <strong>D</strong> − <strong>B</strong> (table
+        letters) each year. <strong>F. Positive E</strong> is <strong>E</strong>{' '}
+        when <strong>E</strong> &gt; 0, otherwise $0; the 5yr-Total column is the
+        sum of this row’s yearly values. <strong>G. Total Inv (A+F)</strong> =
+        <strong>A</strong> + <strong>F</strong> (table letters) each year; the
+        5yr-Total column is the sum of this row’s yearly values.{' '}
+        <strong>Cumul. Inv</strong> is the running sum of <strong>G</strong>{' '}
+        through each year (5yr-Total = cumulative value at Year&nbsp;5).{' '}
+        <strong>H. Total Returns</strong> is the sum of the Tangible and intangible
+        returns block yearly totals — Table&nbsp;4 “Tangible Returns (Revenue &amp;
+        Productivity)” plus Table&nbsp;5 “Intangible Returns (Quantified)”; the
+        5yr-Total column is the sum of this row’s yearly values.{' '}
+        <strong>I. Net Cash Flow (H-E-A)</strong> =
+        <strong>H</strong> − <strong>E</strong> − <strong>A</strong> (table
+        letters) each year; the 5yr-Total column is the sum of this row’s yearly
+        values. <strong>Cumul. Net Cash Flow</strong> is the running sum of{' '}
+        <strong>I</strong> through each year (5yr-Total = cumulative value at
+        Year&nbsp;5). For the model, <strong>Baseline On-Prem OPEX</strong> is
+        100% of Table&nbsp;2 annual baseline total in Year&nbsp;1, then compounds
+        by the Cash flow <strong>Annual OpEx change (%)</strong> each year. Dollar
+        rows are USD. <strong>Cumulative ROI</strong> (this row and the chart) is
+        <strong>Cumul. Net Cash Flow</strong> ÷ <strong>Cumul. Inv</strong>{' '}
+        (&times;100%) each year; the 5yr-Total column uses the Year&nbsp;5 values
+        of those two rows.
+      </p>
+      <div className="table-scroll">
+        <table className="data-table data-table-panel2-cumulative-roi">
+          <thead>
+            <tr>
+              <th scope="col">Indicator (USD)</th>
+              {YEARS.map((y) => (
+                <th key={y} scope="col" className="num">
+                  Year {y}
+                </th>
+              ))}
+              <th scope="col" className="num">
+                5yr-Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">A. CAPEX</th>
+              {cumulativeRoiTable.capex.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.capex)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">B. On-Prem OPEX(Baseline)</th>
+              {cumulativeRoiTable.baselineOnPremOpexDisplay.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(
+                  cumulativeRoiTable.totals.baselineOnPremOpexDisplay,
+                )}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">C. On-Premise OPEX</th>
+              {cumulativeRoiTable.onPremiseOpex.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.onPremiseOpex)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">D. Cloud + AI OPEX</th>
+              {cumulativeRoiTable.cloudAiOpex.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.cloudAiOpex)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">E. OPEX Net losts (C+D-B)</th>
+              {cumulativeRoiTable.opexNetSavings.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.opexNetSavings)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">F. Positive E</th>
+              {cumulativeRoiTable.positiveE.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.positiveE)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">G. Total Inv (A+F)</th>
+              {cumulativeRoiTable.invAPlusF.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.invAPlusF)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Cumul. Inv</th>
+              {cumulativeRoiTable.cumulInv.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.cumulInv)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">H. Total Returns</th>
+              {cumulativeRoiTable.tangIntangReturns.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.tangIntangReturns)}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">I. Net Cash Flow (H-E-A)</th>
+              {cumulativeRoiTable.netCashFlowHMinusEMinusA.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(
+                  cumulativeRoiTable.totals.netCashFlowHMinusEMinusA,
+                )}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Cumul. Net Cash Flow</th>
+              {cumulativeRoiTable.cumulNetCashFlowI.map((v, yi) => (
+                <td key={yi} className="num">
+                  {formatCurrency(v)}
+                </td>
+              ))}
+              <td className="num">
+                {formatCurrency(cumulativeRoiTable.totals.cumulNetCashFlowI)}
+              </td>
+            </tr>
+            <tr className="data-table-total-row">
+              <th scope="row">
+                <strong>Cumulative ROI</strong>
+              </th>
+              {cumulativeRoiTable.cumulativeRoiFraction.map((frac, yi) => (
+                <td key={yi} className="num num-strong">
+                  {formatPanel2CumulativeRoiRatio(frac)}
+                </td>
+              ))}
+              <td className="num num-strong">
+                {formatPanel2CumulativeRoiRatio(
+                  cumulativeRoiTable.totals.cumulativeRoiFraction,
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+/** Shared Panel 2 ROI dual-axis chart + cumulative ROI table (used on ROI route and Panel 7). */
+function CumulativeRoiChartAndTableSection({ cumulativeRoiTable, idPrefix }) {
+  const [cumulativeRoiTableVisible, setCumulativeRoiTableVisible] =
+    useState(false)
+
+  return (
+    <>
+      <CumulativeRoiChartCard
+        cumulativeRoiTable={cumulativeRoiTable}
+        idPrefix={idPrefix}
+        cumulativeRoiTableVisible={cumulativeRoiTableVisible}
+        setCumulativeRoiTableVisible={setCumulativeRoiTableVisible}
+      />
+      {cumulativeRoiTableVisible ? (
+        <CumulativeRoiTableCard
+          cumulativeRoiTable={cumulativeRoiTable}
+          idPrefix={idPrefix}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -5286,10 +5684,6 @@ function RoiValuePanel({ cumulativeRoiTable }) {
     useState(false)
   const [panel2IntangibleDetailOpen, setPanel2IntangibleDetailOpen] =
     useState(false)
-  const [
-    panel2CumulativeRoiTableVisible,
-    setPanel2CumulativeRoiTableVisible,
-  ] = useState(false)
 
   return (
     <main className="migration-panel">
@@ -5646,171 +6040,10 @@ function RoiValuePanel({ cumulativeRoiTable }) {
       </section>
       ) : null}
 
-      <section
-        className="panel-card"
-        aria-labelledby="panel2-roi-chart-heading"
-      >
-        <div className="panel2-roi-chart-header-row">
-          <h2
-            id="panel2-roi-chart-heading"
-            className="card-heading panel2-roi-chart-heading"
-          >
-            ROI chart
-          </h2>
-          <div className="panel2-roi-chart-toggle-wrap">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={panel2CumulativeRoiTableVisible}
-              aria-label={
-                panel2CumulativeRoiTableVisible
-                  ? 'Hide cumulative ROI table'
-                  : 'Show cumulative ROI table'
-              }
-              className={`p6-toggle${panel2CumulativeRoiTableVisible ? ' p6-toggle-on' : ''}`}
-              onClick={() =>
-                setPanel2CumulativeRoiTableVisible((v) => !v)
-              }
-            >
-              <span className="p6-toggle-knob" />
-            </button>
-          </div>
-        </div>
-        <p className="card-lead">
-          Same numbers as <strong>Cumulative ROI table</strong>
-          {' '}(use the toggle to show it){' '}:
-          cumulative ROI (<strong>%</strong>, left scale, line) versus cumulative
-          net cash flow (<strong>million USD</strong>, right scale, bars).
-        </p>
-        <div className="chart-legend panel2-roi-chart-legend">
-          <span className="legend-item">
-            <span className="legend-line panel2-roi-chart-legend-line" />{' '}
-            Cumulative ROI
-          </span>
-          <span className="legend-item">
-            <span className="legend-swatch panel2-roi-chart-legend-swatch" />{' '}
-            Cumul. net cash flow
-          </span>
-        </div>
-        <Panel2RoiDualAxisChart cumulativeRoiTable={cumulativeRoiTable} />
-      </section>
-
-      {panel2CumulativeRoiTableVisible ? (
-      <section
-        className="panel-card"
-        aria-labelledby="panel2-cumulative-roi-heading"
-      >
-        <h2 id="panel2-cumulative-roi-heading" className="card-heading">
-          Cumulative ROI table
-        </h2>
-        <p className="card-lead">
-          <strong>A</strong> is modeled CAPEX (Panel&nbsp;1 Table&nbsp;1).{' '}
-          <strong>Baseline On-Prem OPEX</strong> is 100% of Table&nbsp;2 annual
-          baseline total in Year&nbsp;1, then compounds by the Cash flow{' '}
-          <strong>Annual OpEx change (%)</strong> each year.{' '}
-          <strong>B. Total Returns</strong> =
-          baseline − (Panel&nbsp;1 <strong>OPEX (On-Premise)</strong>
-          {' + '}
-          <strong>OPEX (Cloud + AI)</strong>)
-          {' '}
-          + tangible + intangible yearly totals from Panel&nbsp;2 Tables&nbsp;4
-          &amp; 5. <strong>C</strong> =
-          <strong>B − A</strong>. Dollar rows are USD;{' '}
-          <strong>Cumulative ROI</strong> =
-          cumulative <strong>C</strong>
-          ÷ cumulative <strong>A</strong> (&times;100%).
-        </p>
-        <div className="table-scroll">
-          <table className="data-table data-table-panel2-cumulative-roi">
-            <thead>
-              <tr>
-                <th scope="col">Indicator (USD)</th>
-                {YEARS.map((y) => (
-                  <th key={y} scope="col" className="num">
-                    Year {y}
-                  </th>
-                ))}
-                <th scope="col" className="num">
-                  5yr-Total
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">A. CAPEX</th>
-                {cumulativeRoiTable.capex.map((v, yi) => (
-                  <td key={yi} className="num">
-                    {formatCurrency(v)}
-                  </td>
-                ))}
-                <td className="num">
-                  {formatCurrency(cumulativeRoiTable.totals.capex)}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">Cumul. CAPEX</th>
-                {cumulativeRoiTable.cumulCapex.map((v, yi) => (
-                  <td key={yi} className="num">
-                    {formatCurrency(v)}
-                  </td>
-                ))}
-                <td className="num">
-                  {formatCurrency(cumulativeRoiTable.totals.cumulCapex)}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">B. Total Returns</th>
-                {cumulativeRoiTable.totalReturns.map((v, yi) => (
-                  <td key={yi} className="num">
-                    {formatCurrency(v)}
-                  </td>
-                ))}
-                <td className="num">
-                  {formatCurrency(cumulativeRoiTable.totals.totalReturns)}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">C. Net Cash Flow (B − A)</th>
-                {cumulativeRoiTable.netCashFlow.map((v, yi) => (
-                  <td key={yi} className="num">
-                    {formatCurrency(v)}
-                  </td>
-                ))}
-                <td className="num">
-                  {formatCurrency(cumulativeRoiTable.totals.netCashFlow)}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">Cumul. Net Cash Flow</th>
-                {cumulativeRoiTable.cumulNet.map((v, yi) => (
-                  <td key={yi} className="num">
-                    {formatCurrency(v)}
-                  </td>
-                ))}
-                <td className="num">
-                  {formatCurrency(cumulativeRoiTable.totals.cumulNet)}
-                </td>
-              </tr>
-              <tr className="data-table-total-row">
-                <th scope="row">
-                  <strong>Cumulative ROI</strong>
-                </th>
-                {cumulativeRoiTable.cumulativeRoiFraction.map((frac, yi) => (
-                  <td key={yi} className="num num-strong">
-                    {formatPanel2CumulativeRoiRatio(frac)}
-                  </td>
-                ))}
-                <td className="num num-strong">
-                  {formatPanel2CumulativeRoiRatio(
-                    cumulativeRoiTable.totals.cumulativeRoiFraction,
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      ) : null}
+      <CumulativeRoiChartAndTableSection
+        cumulativeRoiTable={cumulativeRoiTable}
+        idPrefix="panel2"
+      />
     </main>
   )
 }
@@ -6031,10 +6264,16 @@ function App() {
   const rows = useMemo(() => {
     const numericOpex = numericOpexForModel
     const numericCapex = panel1NumericCapexByYear
+    const onP = panel1Table2OnpremSums
+    const cl = panel1Table3CloudSums
+    const opexOnPremByYear = [onP.y1, onP.y2, 0, 0, 0]
+    const opexCloudAiByYear = [cl.y1, cl.y2, cl.y3, cl.y4, cl.y5]
     return YEARS.reduce(
       (acc, y, idx) => {
         const opex = numericOpex[idx]
         const capex = numericCapex[idx]
+        const opexOnPrem = Math.round(opexOnPremByYear[idx] ?? 0)
+        const opexCloudAi = Math.round(opexCloudAiByYear[idx] ?? 0)
         const totalCost = opex + capex
         const cumulativeCost = acc.cumulative + totalCost
         return {
@@ -6044,6 +6283,8 @@ function App() {
             {
               year: y,
               opex,
+              opexOnPrem,
+              opexCloudAi,
               capex,
               totalCost,
               cumulativeCost,
@@ -6053,7 +6294,12 @@ function App() {
       },
       { cumulative: 0, rows: [] },
     ).rows
-  }, [numericOpexForModel, panel1NumericCapexByYear])
+  }, [
+    numericOpexForModel,
+    panel1NumericCapexByYear,
+    panel1Table2OnpremSums,
+    panel1Table3CloudSums,
+  ])
 
   const annualBenefits =
     parseMoney(annualDowntimeSavings) +
@@ -6828,8 +7074,9 @@ function App() {
           Each year compares <strong>baseline</strong> on-prem OPEX (Year&nbsp;1 =
           Table&nbsp;2 <strong>annual baseline</strong> total; Years&nbsp;2–5 grow
           at the Cash flow <strong>Annual OpEx change (%)</strong>) to the{' '}
-          <strong>migration scenario</strong>: stacked <strong>CAPEX</strong> plus{' '}
-          <strong>OPEX (combined operating)</strong>, matching the cash-flow model.
+          <strong>migration scenario</strong>: stacked <strong>CAPEX</strong>, then{' '}
+          <strong>OPEX (on-prem)</strong> (Table&nbsp;2 wind-down), then{' '}
+          <strong>OPEX (Cloud+AI)</strong> (Table&nbsp;3), matching the cash-flow model.
         </p>
         <div className="chart-legend">
           <span className="legend-item">
@@ -6840,8 +7087,12 @@ function App() {
             <span className="legend-swatch legend-swatch-p1-capex" /> CAPEX
           </span>
           <span className="legend-item">
-            <span className="legend-swatch legend-swatch-p1-opex-combined" />{' '}
-            OPEX (combined)
+            <span className="legend-swatch legend-swatch-p1-opex-onprem" />{' '}
+            OPEX (on-prem)
+          </span>
+          <span className="legend-item">
+            <span className="legend-swatch legend-swatch-p1-opex-cloud" />{' '}
+            OPEX (Cloud+AI)
           </span>
         </div>
         <Panel1CostByYearChart
@@ -6924,6 +7175,7 @@ function App() {
             setDataAvailability={setDataAvailability}
             dataReliability={dataReliability}
             setDataReliability={setDataReliability}
+            cumulativeRoiTable={panel2CumulativeRoiTable}
           />
         </div>
 
