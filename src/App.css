@@ -1280,15 +1280,9 @@
   width: 22px;
   height: 12px;
   border-radius: 4px;
-  background: linear-gradient(90deg, #16a34a 50%, #dc2626 50%);
-}
-
-.panel2-roi-chart-bar-pos {
-  fill: #16a34a;
-}
-
-.panel2-roi-chart-bar-neg {
-  fill: #dc2626;
+  background:
+    linear-gradient(180deg, #4ade80 0%, #15803d 100%) 0 0 / 50% 100% no-repeat,
+    linear-gradient(180deg, #fca5a5 0%, #b91c1c 100%) 100% 0 / 50% 100% no-repeat;
 }
 
 .panel2-roi-chart-line {
@@ -1342,15 +1336,9 @@
   }
 
   .panel2-roi-chart-legend-swatch {
-    background: linear-gradient(90deg, #4ade80 50%, #f87171 50%);
-  }
-
-  .panel2-roi-chart-bar-pos {
-    fill: #4ade80;
-  }
-
-  .panel2-roi-chart-bar-neg {
-    fill: #f87171;
+    background:
+      linear-gradient(180deg, #4ade80 0%, #15803d 100%) 0 0 / 50% 100% no-repeat,
+      linear-gradient(180deg, #fca5a5 0%, #b91c1c 100%) 100% 0 / 50% 100% no-repeat;
   }
 
   .panel2-roi-chart-line {
