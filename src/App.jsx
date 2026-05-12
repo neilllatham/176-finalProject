@@ -3181,11 +3181,12 @@ function Panel7RoiSensitivity({ cumulativeRoiTable }) {
 
   const panel7CumulativeRoiTable = useMemo(
     () =>
-      applyPanel7AiInvestmentSensitivity(
+      applyPanel7RoiSensitivity(
         cumulativeRoiTable,
         controlAiInvestmentUsd,
+        controlDataQualityPct,
       ),
-    [cumulativeRoiTable, controlAiInvestmentUsd],
+    [cumulativeRoiTable, controlAiInvestmentUsd, controlDataQualityPct],
   )
 
   return (
@@ -3194,13 +3195,14 @@ function Panel7RoiSensitivity({ cumulativeRoiTable }) {
         <p className="migration-eyebrow">Cloud migration simulator · Section 7</p>
         <p className="panel-title-context">Panel 7: ROI Sensitivity Explorer</p>
         <p className="panel-subtitle">
-          Cumulative ROI chart and table start from Panel&nbsp;2; moving{' '}
-          <strong>AI Investment</strong> adjusts CAPEX (Y1 +60% and Y2 +40% of
-          each $100k step vs $1M baseline) and scales <strong>H. Total Returns</strong>{' '}
-          per $100k step: below $1M AI the rate stays 1.5%; at or above $1M it
-          tapers linearly from 1.5% toward 0.1% by $2M ($1M above baseline). That
-          rate applies across all steps from the baseline (compound up, divide
-          down), with dependent rows recomputed.
+          Cumulative ROI chart and table start from Panel&nbsp;2.{' '}
+          <strong>AI Investment</strong> (baseline $1M): CAPEX Y1/Y2 +$60k/+$40k
+          per $100k above baseline (reversed below); Total Returns tilt compounds
+          at 1.5% per step below $1M AI, tapering toward 0.1% per step by $2M
+          above baseline; that AI tilt on <strong>H. Total Returns</strong> is
+          scaled by <strong>Data quality %</strong> (÷100). For Data Quality
+          ≥80%, each 5% above 80% adds $30k CAPEX Y1 and $20k Y2; below 80% adds
+          no DQ CAPEX. Dependent rows are recomputed.
         </p>
       </header>
 
@@ -4329,6 +4331,11 @@ const PANEL7_AI_INVESTMENT_BASELINE_USD = 1_000_000
 const PANEL7_AI_INVESTMENT_STEP_USD = 100_000
 const PANEL7_AI_CAPEX_Y1_PER_100K = 100_000 * 0.6
 const PANEL7_AI_CAPEX_Y2_PER_100K = 100_000 * 0.4
+/** Data Quality ≥ this: each 5% above adds CAPEX Y1/Y2; below → no DQ CAPEX. */
+const PANEL7_DQ_CAPEX_THRESHOLD_PCT = 80
+const PANEL7_DQ_CAPEX_STEP_PCT = 5
+const PANEL7_DQ_CAPEX_PER_STEP_Y1 = 1_000_000 * 0.05 * 0.6
+const PANEL7_DQ_CAPEX_PER_STEP_Y2 = 1_000_000 * 0.05 * 0.4
 /** Fractional return bump per $100k step when at or near baseline; tapers to `…_AT_MAX` only above $1M. */
 const PANEL7_AI_RETURNS_RATE_NEAR_BASE = 0.015
 const PANEL7_AI_RETURNS_RATE_AT_MAX_DIST = 0.001
@@ -4365,13 +4372,15 @@ function panel7TotalReturnsScaleFromBaseline(
 }
 
 /**
- * Rebuild cumulative ROI series for Panel 7: each +$100k AI vs baseline adds
- * $60k CAPEX Y1 and $40k CAPEX Y2, and scales H (Total Returns) per year using
- * `panel7TotalReturnsScaleFromBaseline`; reversed when AI is below baseline.
+ * Rebuild cumulative ROI series for Panel 7: AI vs $1M baseline adjusts CAPEX
+ * Y1/Y2. For Data Quality ≥80%, each 5% above 80% adds $30k Y1 and $20k Y2
+ * CAPEX; below 80% adds no DQ CAPEX. AI’s H (Total Returns) delta is scaled by
+ * (data quality % ÷ 100).
  */
-function applyPanel7AiInvestmentSensitivity(
+function applyPanel7RoiSensitivity(
   baseTable,
   aiInvestmentUsd,
+  dataQualityPct,
   baselineAiUsd = PANEL7_AI_INVESTMENT_BASELINE_USD,
 ) {
   const n =
@@ -4380,19 +4389,29 @@ function applyPanel7AiInvestmentSensitivity(
     aiInvestmentUsd,
     baselineAiUsd,
   )
-  const dCapexY1 = n * PANEL7_AI_CAPEX_Y1_PER_100K
-  const dCapexY2 = n * PANEL7_AI_CAPEX_Y2_PER_100K
+  const dqFactor = (Number(dataQualityPct) || 0) / 100
+  const dCapexAiY1 = n * PANEL7_AI_CAPEX_Y1_PER_100K
+  const dCapexAiY2 = n * PANEL7_AI_CAPEX_Y2_PER_100K
+  const dq = Number(dataQualityPct) || 0
+  const dqStepsAboveThreshold =
+    dq >= PANEL7_DQ_CAPEX_THRESHOLD_PCT
+      ? Math.round((dq - PANEL7_DQ_CAPEX_THRESHOLD_PCT) / PANEL7_DQ_CAPEX_STEP_PCT)
+      : 0
+  const dCapexDqY1 = dqStepsAboveThreshold * PANEL7_DQ_CAPEX_PER_STEP_Y1
+  const dCapexDqY2 = dqStepsAboveThreshold * PANEL7_DQ_CAPEX_PER_STEP_Y2
 
   const capexByYear = YEARS.map((_, i) => {
     const base = baseTable.capex[i] ?? 0
-    if (i === 0) return Math.round(base + dCapexY1)
-    if (i === 1) return Math.round(base + dCapexY2)
+    if (i === 0) return Math.round(base + dCapexAiY1 + dCapexDqY1)
+    if (i === 1) return Math.round(base + dCapexAiY2 + dCapexDqY2)
     return base
   })
 
-  const tangibleByYear = YEARS.map((_, i) =>
-    Math.round((baseTable.tangIntangReturns[i] ?? 0) * returnsMult),
-  )
+  const tangibleByYear = YEARS.map((_, i) => {
+    const baseH = baseTable.tangIntangReturns[i] ?? 0
+    const hFromAi = baseH * returnsMult
+    return Math.round(baseH + (hFromAi - baseH) * dqFactor)
+  })
   const intangibleByYear = YEARS.map(() => 0)
 
   const baselineOnPremByYear = YEARS.map((_, i) =>
