@@ -1465,116 +1465,124 @@ function AppTopHeader({ showBack, title, onBackToHome }) {
 
 /** Panel 4 — decision structure (single Mermaid flowchart). */
 const PANEL4_DECISION_STRUCTURE_MERMAID = `flowchart TD
-    classDef strategic   fill:#1A3A5C,color:#fff,stroke:#1A3A5C
+    classDef strategic   fill:#E39C26,color:#1a1a1a,stroke:#C57614
     classDef oversight   fill:#6C3483,color:#fff,stroke:#6C3483
-    classDef panel       fill:#7D3C98,color:#fff,stroke:#7D3C98
-    classDef tactical    fill:#1A6B3C,color:#fff,stroke:#1A6B3C
-    classDef operational fill:#E8E8E8,color:#263238,stroke:#BDBDBD
+    classDef delivery    fill:#1565C0,color:#fff,stroke:#0D47A1
+    classDef operational fill:#1A6B3C,color:#fff,stroke:#145229
 
-    ESC["Executive Steering Committee<br/>Chair: CEO | Members: CIO · CTO · CFO · CRO · CCO<br/>Cadence: Monthly"]:::strategic
+    subgraph esc_panel ["Strategic governance"]
+      ESC["Executive Steering Committee<br/>Chair: CEO | Members: CIO · CTO · CFO · CRO · CCO · COO<br/>Cadence: Monthly"]:::strategic
+    end
+    style esc_panel fill:#FFF8E7,stroke:#E39C26,stroke-width:2px,color:#263238
 
-    CCO["CCO — Business Co-Sponsor<br/>Veto Rights: CX & Customer Workflows<br/>Cadence: Quarterly"]:::oversight
+    subgraph sponsor_panel ["Programme owner & business co-sponsors"]
+      direction LR
+      CCO["CCO — Business Co-Sponsor<br/>Veto Rights: CX & Customer Workflows<br/>Cadence: Quarterly"]:::oversight
+      CRO["CRO / Compliance — Business Co-Sponsor<br/>Veto Rights: Risk & Regulatory Decisions<br/>Cadence: Quarterly"]:::oversight
+      COO["COO — Operations Owner<br/>Full Business Continuity & Service Delivery<br/>Chairs Executive Operations Committee | Monthly"]:::oversight
+      CIO["CIO — Primary Owner<br/>Full AI & Cloud Programme<br/>Chairs Cloud Migration Board | Fortnightly"]:::oversight
+    end
+    style sponsor_panel fill:#f8f4fc,stroke:#6C3483,stroke-width:2px,color:#263238
+    style CIO stroke:#C62828,stroke-width:3px
 
-    CRO["CRO / Compliance — Business Co-Sponsor<br/>Veto Rights: Risk & Regulatory Decisions<br/>Cadence: Quarterly"]:::oversight
+    subgraph delivery_leads ["Delivery leadership tier"]
+      direction LR
+      HCS["Head of Customer Service<br/>Formal Stakeholder — CS Department<br/>UAT Sign-off Rights | Fortnightly Sprint Review"]:::delivery
+      HAI["Head of AI — Reports to CIO<br/>Owns: Models · MLOps · Data Pipelines<br/>Fortnightly"]:::delivery
+      LCA["Lead Cloud Architect — Reports to CIO<br/>Owns: Cloud Infrastructure · CI/CD Pipelines · Security Architecture · FinOps<br/>Fortnightly"]:::delivery
+    end
+    style delivery_leads fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#263238
 
-    PANEL["AI Ethics Review Panel<br/>CTO · Legal · Compliance · Customer Rep<br/>Gate: Consequential AI Models | Quarterly"]:::panel
-
-    CIO["CIO — Primary Owner<br/>Full AI & Cloud Programme<br/>Chairs Cloud Migration Board | Fortnightly"]:::tactical
-
-    HAI["Head of AI — Reports to CIO<br/>Owns: Models · MLOps · Data Pipelines<br/>Fortnightly"]:::tactical
-
-    HCS["Head of Customer Service<br/>Formal Stakeholder — CS Department<br/>UAT Sign-off Rights | Fortnightly Sprint Review"]:::oversight
-
-    CFAS["Cloud FinOps & Architecture Squad<br/>Lead: Lead Cloud Architect<br/>Infra · Security · Cost Optimisation | Weekly"]:::operational
-
-    ACSS["AI Customer Service Squad<br/>Lead: AI Product Owner<br/>Chatbot · Agent-Assist · Model Training | Weekly<br/>── Embedded: CS SME (seconded from CS Dept) ──<br/>Validates flows · UAT sign-off · Backlog priority"]:::operational
-
-    MLOPS["MLOps & Data Engineering Squad<br/>Lead: Head of AI<br/>Model Quality · Pipelines · Monitoring | Weekly"]:::operational
+    subgraph ops_tier ["Operational squads"]
+      direction LR
+      ACSS["AI Customer Service Squad<br/>Lead: AI Product Owner<br/>Chatbot · Agent-Assist · Model Training | Weekly"]:::operational
+      MLOPS["MLOps & Data Engineering Squad<br/>Lead: Head of AI<br/>Model Quality · Pipelines · Monitoring | Weekly"]:::operational
+      CFAS["Cloud FinOps & Architecture Squad<br/>Infra · Security · Cost Optimisation | Weekly"]:::operational
+    end
+    style ops_tier fill:#E8F5E9,stroke:#1A6B3C,stroke-width:2px,color:#263238
 
     ESC -->|"Programme Mandate & Budget"| CIO
     ESC -->|"Business Priorities"| CCO
     ESC -->|"Risk Appetite"| CRO
-
-    CCO -->|"CX Veto & Workflow Approval"| CIO
-    CRO -->|"Risk Veto & Compliance Rules"| CIO
+    ESC -->|"Service Delivery & Continuity"| COO
 
     CIO -->|"AI Programme Ownership"| HAI
-    CIO -->|"Architecture Guidelines"| CFAS
-
-    PANEL -->|"Production Gate Sign-off"| HAI
+    CIO -->|"Architecture Guidelines"| LCA
+    LCA -->|"Squad direction"| CFAS
 
     HAI -->|"Model & Data Direction"| ACSS
     HAI -->|"MLOps Standards"| MLOPS
 
-    HCS -->|"UAT Sign-off & Business Requirements"| ACSS
-    HCS -.->|"Escalate: Operational / UX issues"| HAI
+    CCO -->|"CX Standards & Workflow Alignment"| HCS
 
-    CFAS -.->|"Escalate: Budget / Timeline"| CIO
-    ACSS -.->|"Escalate: CX or Regulatory risk"| HAI
-    MLOPS -.->|"Escalate: Model accuracy / bias"| HAI
-    HAI -.->|"Escalate: Consequential AI deployment"| PANEL
-    CIO -.->|"Escalate: Major scope / budget"| ESC`
+    HCS -.->|"UAT Sign-off & Business Requirements"| ACSS`
 
 /** Hover notes for Panel 4 flowchart nodes (shown when cursor rests on a node). */
 const PANEL4_MERMAID_NODE_NOTES = {
   ESC: {
     title: 'Executive Steering Committee',
     paragraphs: [
-      'The Executive Steering Committee (dark navy, top) is the highest governing body of the programme. It sets the programme mandate and budget to the CIO, delegates business priorities to the CCO, and delegates risk appetite to the CRO. It also holds the CTO as a member, providing technology strategy perspective at the board level. The ESC meets monthly and is the only body with authority to approve major scope or budget changes.',
+      'The Executive Steering Committee (gold, top — strategic governance in the legend) is the highest governing body of the programme. It sits alone in the bordered “Strategic governance” panel above the other tiers. It sets the programme mandate and budget to the CIO, business priorities to the CCO, risk appetite to the CRO, and service delivery and continuity expectations to the COO. In the flowchart, the CIO, COO, CCO, and CRO sit together in one bordered “Programme owner & business co-sponsors” panel as peers at the same level. The ESC also holds the CTO as a member, providing technology strategy perspective at the board level. The ESC meets monthly and is the only body with authority to approve major scope or budget changes.',
     ],
   },
   CCO: {
     title: 'CCO — Business Co-Sponsor',
     paragraphs: [
-      'The CCO, CRO, and Head of Customer Service (purple, second row) form the business oversight layer. The CCO and CRO are business co-sponsors — they feed their veto rights and compliance rules directly into the CIO, but they are not in the CIO’s reporting line. They sit alongside, not above. The CCO holds veto rights over customer-facing AI workflows and CX standards. The CRO holds veto rights over risk and regulatory decisions. The Head of Customer Service sits in this same purple tier, reflecting that they too are a business stakeholder with formal authority — specifically, UAT sign-off rights over every AI customer service feature before it reaches production. All three meet on a quarterly basis, except the Head of Customer Service who also attends fortnightly sprint reviews.',
+      'The CCO, CRO, CIO, and COO (purple, business oversight in the legend) share the “Programme owner & business co-sponsors” panel. A dedicated chart link runs from the CCO to the Head of Customer Service for CX standards and workflow alignment. The Head of Customer Service is shown separately in the “Delivery leadership tier” alongside Head of AI and Lead Cloud Architect — same chart level for readability — with UAT sign-off rights over customer-facing AI. The CCO holds veto rights over customer-facing AI workflows and CX standards.',
     ],
   },
   CRO: {
     title: 'CRO / Compliance — Business Co-Sponsor',
     paragraphs: [
-      'The CCO, CRO, and Head of Customer Service (purple, second row) form the business oversight layer. The CCO and CRO are business co-sponsors — they feed their veto rights and compliance rules directly into the CIO, but they are not in the CIO’s reporting line. They sit alongside, not above. The CCO holds veto rights over customer-facing AI workflows and CX standards. The CRO holds veto rights over risk and regulatory decisions. The Head of Customer Service sits in this same purple tier, reflecting that they too are a business stakeholder with formal authority — specifically, UAT sign-off rights over every AI customer service feature before it reaches production. All three meet on a quarterly basis, except the Head of Customer Service who also attends fortnightly sprint reviews.',
+      'The CCO and CRO share one panel with the COO and CIO as programme owner & business co-sponsors. The Head of Customer Service sits in the delivery leadership tier with Head of AI and Lead Cloud Architect at one level in the chart. The CRO holds veto rights over risk and regulatory decisions.',
+    ],
+  },
+  COO: {
+    title: 'COO — Operations Owner',
+    paragraphs: [
+      'The COO (purple, same business oversight colour family as the CCO, CRO, and CIO in the diagram) sits in the “Programme owner & business co-sponsors” panel alongside them. They own full business continuity and service delivery, chair the Executive Operations Committee on a monthly cadence, and receive service delivery and continuity direction from the ESC.',
     ],
   },
   HCS: {
     title: 'Head of Customer Service',
     paragraphs: [
-      'The CCO, CRO, and Head of Customer Service (purple, second row) form the business oversight layer. The CCO and CRO are business co-sponsors — they feed their veto rights and compliance rules directly into the CIO, but they are not in the CIO’s reporting line. They sit alongside, not above. The CCO holds veto rights over customer-facing AI workflows and CX standards. The CRO holds veto rights over risk and regulatory decisions. The Head of Customer Service sits in this same purple tier, reflecting that they too are a business stakeholder with formal authority — specifically, UAT sign-off rights over every AI customer service feature before it reaches production. All three meet on a quarterly basis, except the Head of Customer Service who also attends fortnightly sprint reviews.',
-    ],
-  },
-  PANEL: {
-    title: 'AI Ethics Review Panel',
-    paragraphs: [
-      'The AI Ethics Review Panel (lighter purple, oversight layer) is not a governing body but a production gate. It is composed of the CTO, Legal, Compliance, and a Customer Representative. No consequential AI model — one that influences underwriting, claims, fraud scoring, or pricing — may be deployed to production without passing this panel’s sign-off checklist. The CTO’s presence provides the technical scrutiny that Legal and Compliance alone cannot supply.',
+      'The Head of Customer Service (blue, delivery leadership in the legend — same family as Head of AI and Lead Cloud Architect) appears in the bordered “Delivery leadership tier” together with those roles — one row, same level in the diagram. They receive CX standards and workflow alignment direction from the CCO (shown as a link on the chart). They are formal CS stakeholder with UAT sign-off rights over every AI customer service feature before production, and feed business requirements to the AI Customer Service Squad (in the “Operational squads” tier below); that relationship is drawn as a dotted line on the chart.',
     ],
   },
   CIO: {
     title: 'CIO — Primary Owner',
     paragraphs: [
-      'The CIO (green, tactical centre) is the single primary owner of the full programme — both the cloud migration and the AI implementation. The CIO receives four inputs from above: the programme mandate from the ESC, the CX veto from the CCO, the risk and compliance rules from the CRO, and the production gate sign-off from the AI Ethics Review Panel flowing through the Head of AI. The CIO directs both the Head of AI and the Cloud FinOps & Architecture Squad, and chairs the Cloud Migration Board on a fortnightly basis.',
+      'The CIO (purple, in the co-sponsor panel — same legend family as CCO, CRO, and COO) is the single primary owner of the full programme — both the cloud migration and the AI implementation. The chart places the CIO in the same bordered tier as the CCO, CRO, and COO (peers at one level); there are no direct arrows from CCO or CRO to the CIO. The CIO receives the programme mandate from the ESC. Below that, the CIO directs three roles shown together in the “Delivery leadership tier”: Head of Customer Service, Head of AI, and Lead Cloud Architect — Head of AI and Lead Cloud Architect receive direct CIO arrows (programme ownership and architecture guidelines). The CIO chairs the Cloud Migration Board on a fortnightly basis.',
+    ],
+  },
+  LCA: {
+    title: 'Lead Cloud Architect',
+    paragraphs: [
+      'The Lead Cloud Architect reports to the CIO and shares the “Delivery leadership tier” panel with Head of AI and Head of Customer Service at one level in the chart. They receive architecture guidelines from the CIO and direct the Cloud FinOps & Architecture Squad inside the bordered “Operational squads” tier below. They own cloud infrastructure, CI/CD pipelines, security architecture, and FinOps on a fortnightly cadence.',
     ],
   },
   HAI: {
     title: 'Head of AI',
     paragraphs: [
-      'The Head of AI (green, below CIO) reports directly into the CIO and owns the full AI model lifecycle — models, MLOps, and data pipelines. The Head of AI directs the two AI operational squads: the AI Customer Service Squad and the MLOps & Data Engineering Squad. When a consequential AI model is ready for production, the Head of AI escalates it sideways to the AI Ethics Review Panel for gate sign-off before it can go live. The Head of AI also receives operational and UX issue escalations directly from the Head of Customer Service between sprint reviews.',
+      'The Head of AI shares the “Delivery leadership tier” with Lead Cloud Architect and Head of Customer Service at one level in the diagram. They report to the CIO and own the full AI model lifecycle — models, MLOps, and data pipelines. They direct the AI Customer Service Squad and MLOps & Data Engineering Squad in the same “Operational squads” panel at one chart level.',
     ],
   },
   CFAS: {
     title: 'Cloud FinOps & Architecture Squad',
     paragraphs: [
-      'The three operational squads (light gray, bottom) execute on a weekly cadence and escalate upward only when predefined thresholds are breached. The Cloud FinOps & Architecture Squad, led by the Lead Cloud Architect, handles infrastructure, security, and cost optimisation, escalating budget or timeline breaches to the CIO.',
+      'The three operational squads (green, operational execution in the legend) sit together in the bordered “Operational squads” panel (left to right: AI Customer Service, MLOps & Data Engineering, Cloud FinOps & Architecture) and execute on a weekly cadence. The Cloud FinOps & Architecture Squad handles infrastructure, security, and cost optimisation under direction from the Lead Cloud Architect.',
     ],
   },
   ACSS: {
     title: 'AI Customer Service Squad',
     paragraphs: [
-      'The three operational squads (light gray, bottom) execute on a weekly cadence and escalate upward only when predefined thresholds are breached. The AI Customer Service Squad, led by the AI Product Owner, builds the chatbot, agent-assist tool, and model training pipelines — and critically, has a CS SME permanently embedded within it, seconded from the CS department, who validates dialogue flows, prioritises the backlog from an operational perspective, and co-signs UAT before every release. This squad escalates CX or regulatory risks to the Head of AI.',
+      'The three squads share one “Operational squads” panel at the same level (green, operational execution in the legend). The AI Customer Service Squad, led by the AI Product Owner, builds the chatbot, agent-assist tool, and model training pipelines.',
     ],
   },
   MLOPS: {
     title: 'MLOps & Data Engineering Squad',
     paragraphs: [
-      'The three operational squads (light gray, bottom) execute on a weekly cadence and escalate upward only when predefined thresholds are breached. The MLOps & Data Engineering Squad, led by the Head of AI, maintains model quality, data pipelines, and production monitoring, escalating model accuracy degradation or bias detection to the Head of AI.',
+      'The three squads share one “Operational squads” panel at the same level (green, operational execution in the legend). The MLOps & Data Engineering Squad, led by the Head of AI, maintains model quality, data pipelines, and production monitoring.',
     ],
   },
 }
@@ -1585,9 +1593,10 @@ function inferPanel4MermaidNodeKey(nodeGroup) {
     'ESC',
     'CCO',
     'CRO',
-    'PANEL',
+    'COO',
     'CIO',
     'HAI',
+    'LCA',
     'HCS',
     'CFAS',
     'ACSS',
@@ -1600,9 +1609,10 @@ function inferPanel4MermaidNodeKey(nodeGroup) {
   if (text.includes('Executive Steering Committee')) return 'ESC'
   if (text.includes('CCO —')) return 'CCO'
   if (text.includes('CRO / Compliance')) return 'CRO'
-  if (text.includes('AI Ethics Review Panel')) return 'PANEL'
+  if (text.includes('COO — Operations Owner')) return 'COO'
   if (text.includes('CIO — Primary Owner')) return 'CIO'
   if (text.includes('Head of AI —')) return 'HAI'
+  if (text.includes('Lead Cloud Architect — Reports to CIO')) return 'LCA'
   if (text.includes('Head of Customer Service')) return 'HCS'
   if (text.includes('Cloud FinOps & Architecture')) return 'CFAS'
   if (text.includes('AI Customer Service Squad')) return 'ACSS'
@@ -1666,8 +1676,8 @@ function attachPanel4MermaidNodeHover(svgEl, setHoverTip) {
 /** Panel 4 — colour legend (matches Mermaid classDef fills). */
 const PANEL4_DECISION_COLOUR_LEGEND = [
   {
-    colourName: 'Dark Navy',
-    swatch: '#1A3A5C',
+    colourName: 'Gold',
+    swatch: '#E39C26',
     family: 'Strategic',
     roles: 'Executive Steering Committee',
   },
@@ -1675,18 +1685,17 @@ const PANEL4_DECISION_COLOUR_LEGEND = [
     colourName: 'Purple',
     swatch: 'linear-gradient(90deg, #6C3483 0% 50%, #7D3C98 50% 100%)',
     family: 'Business Oversight',
-    roles:
-      'CCO, CRO, Head of Customer Service, AI Ethics Review Panel',
+    roles: 'CCO, CRO, CIO, COO',
+  },
+  {
+    colourName: 'Blue',
+    swatch: '#1565C0',
+    family: 'Delivery Leadership',
+    roles: 'Head of Customer Service, Lead Cloud Architect, Head of AI',
   },
   {
     colourName: 'Green',
     swatch: '#1A6B3C',
-    family: 'Tactical Ownership',
-    roles: 'CIO, Head of AI',
-  },
-  {
-    colourName: 'Light Gray',
-    swatch: '#E8E8E8',
     family: 'Operational Execution',
     roles: 'Cloud FinOps Squad, AI CS Squad, MLOps Squad',
   },
