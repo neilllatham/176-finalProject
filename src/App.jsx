@@ -2491,21 +2491,46 @@ function Panel5ImplementationRoadmap() {
 }
 
 /**
- * Lead time (days): 25 × team_penalty × auto_factor
- * team_penalty = 1 + 0.015 × (team_size − 10)²
- * auto_factor = 1 − 0.65 × ln(1 + automation%) / ln(101)
- * (≈65% reduction at 100% vs 0% automation for fixed team size.)
+ * Lead time (days): team_baseline(n) × auto_factor × PANEL5_LEAD_TIME_VALUE_MULTIPLIER.
+ * Piecewise exponentials with joint at n = 10 (inflection / regime change):
+ *   n ∈ [2, 10]: 10 × exp(−k₁ × (n − 2)), k₁ = ln(5) / 8 so L(2) = 10 and L(10) = 2.
+ *   n ∈ [10, 30]: 2 × exp(−k₂ × (n − 10)), k₂ = ln(2) / 20 so L(10) = 2 and L(30) = 1.
+ * auto_factor = 1 − 0.65 × ln(1 + automation%) / ln(101).
  */
+const PANEL5_LEAD_TIME_TEAM_SLIDER_MIN = 2
+const PANEL5_LEAD_TIME_TEAM_SLIDER_MAX = 30
+/** Joint between the two exponential segments (inflection region). */
+const PANEL5_LEAD_TIME_JOIN_TEAM = 10
+const PANEL5_LEAD_TIME_K_DECAY_EARLY = Math.log(5) / 8
+const PANEL5_LEAD_TIME_K_DECAY_LATE = Math.log(2) / 20
+/** Applied to baseline × automation (currently 2×). */
+const PANEL5_LEAD_TIME_VALUE_MULTIPLIER = 2
+/** UI band: spectrum and displayed days are clamped to 0–10 days. */
+const PANEL5_LEAD_TIME_DAYS_CAP = 10
+
+/** Expected days from team size alone at 0% automation (anchor 10 / 2 / 1 days). */
+function panel5LeadTimeTeamDaysBaseline(teamSize) {
+  const n = Math.min(
+    PANEL5_LEAD_TIME_TEAM_SLIDER_MAX,
+    Math.max(PANEL5_LEAD_TIME_TEAM_SLIDER_MIN, teamSize),
+  )
+  const n0 = PANEL5_LEAD_TIME_JOIN_TEAM
+  if (n <= n0) {
+    return 10 * Math.exp(-PANEL5_LEAD_TIME_K_DECAY_EARLY * (n - 2))
+  }
+  return 2 * Math.exp(-PANEL5_LEAD_TIME_K_DECAY_LATE * (n - n0))
+}
+
 function panel5LeadTimeDaysRaw(teamSize, automationPct) {
-  const teamPenalty = 1 + 0.015 * (teamSize - 10) ** 2
+  const base = panel5LeadTimeTeamDaysBaseline(teamSize)
   const autoFactor =
     1 - (0.65 * Math.log(1 + automationPct)) / Math.log(101)
-  return 25 * teamPenalty * autoFactor
+  return base * autoFactor * PANEL5_LEAD_TIME_VALUE_MULTIPLIER
 }
 
 function panel5LeadTimeDaysClamped(teamSize, automationPct) {
   return Math.min(
-    30,
+    PANEL5_LEAD_TIME_DAYS_CAP,
     Math.max(0, panel5LeadTimeDaysRaw(teamSize, automationPct)),
   )
 }
@@ -2513,11 +2538,17 @@ function panel5LeadTimeDaysClamped(teamSize, automationPct) {
 function Panel5LeadTimeSurface({ teamSize, automationPct }) {
   const rawDays = panel5LeadTimeDaysRaw(teamSize, automationPct)
   const days = panel5LeadTimeDaysClamped(teamSize, automationPct)
-  const teamPenalty = 1 + 0.015 * (teamSize - 10) ** 2
+  const teamBaseline = panel5LeadTimeTeamDaysBaseline(teamSize)
+  const teamScaled =
+    teamBaseline * PANEL5_LEAD_TIME_VALUE_MULTIPLIER
   const autoFactor =
     1 - (0.65 * Math.log(1 + automationPct)) / Math.log(101)
-  const onSpectrum =
-    Math.min(100, Math.max(0, (days / 30) * 100))
+  const towardBadFromLeftPct = Math.min(
+    100,
+    Math.max(0, (days / PANEL5_LEAD_TIME_DAYS_CAP) * 100),
+  )
+  /** Bar: bad (red) left, good (green) right — mirror so low days sit on the right. */
+  const onSpectrumFromLeftPct = 100 - towardBadFromLeftPct
 
   return (
     <section className="panel-card" aria-labelledby="p5-leadtime-heading">
@@ -2527,78 +2558,112 @@ function Panel5LeadTimeSurface({ teamSize, automationPct }) {
 
       <p className="p5-metric-value p5-leadtime-outcome" aria-live="polite">
         <strong>{days.toFixed(1)}</strong> days
-        {rawDays > 30 ? (
+        {rawDays > PANEL5_LEAD_TIME_DAYS_CAP ? (
           <span className="p5-leadtime-cap-note">
             {' '}
-            (capped from {rawDays.toFixed(1)} at 30 days max for display)
+            (capped from {rawDays.toFixed(1)} at{' '}
+            {PANEL5_LEAD_TIME_DAYS_CAP} days max for display)
           </span>
         ) : null}
       </p>
 
       <p className="p5-leadtime-check" aria-label="Model check">
-        Check: 25 × {teamPenalty.toFixed(3)} (team_penalty) ×{' '}
+        Check: {teamScaled.toFixed(2)} ({PANEL5_LEAD_TIME_VALUE_MULTIPLIER} × team
+        baseline at 0% automation: 10·e
+        <sup>−{PANEL5_LEAD_TIME_K_DECAY_EARLY.toFixed(3)}(n−2)</sup> for n ≤ 10,
+        else 2·e
+        <sup>−{PANEL5_LEAD_TIME_K_DECAY_LATE.toFixed(3)}(n−10)</sup>) ×{' '}
         {autoFactor.toFixed(3)} (auto_factor) ≈{' '}
         <strong>{rawDays.toFixed(1)}</strong> days before capping.
       </p>
 
       <div className="p5-leadtime-1d-legend">
-        <p className="p5-leadtime-1d-title">Lead time scale (0–30 days)</p>
+        <p className="p5-leadtime-1d-title">Lead time scale (0–{PANEL5_LEAD_TIME_DAYS_CAP} days)</p>
         <div
           className="p5-leadtime-1d-track"
           role="img"
-          aria-label={`Gradient from green (low lead time, good) to red (high lead time, bad). Current position about ${onSpectrum.toFixed(0)} percent toward bad end.`}
+          aria-label={`Gradient from red on the left (long lead time, bad) to green on the right (short lead time, good). Marker about ${towardBadFromLeftPct.toFixed(0)} percent from the left (bad) end.`}
         >
-          <span className="p5-leadtime-1d-marker" style={{ left: `${onSpectrum}%` }} />
+          <span
+            className="p5-leadtime-1d-marker"
+            style={{ left: `${onSpectrumFromLeftPct}%` }}
+          />
         </div>
         <div className="p5-leadtime-1d-axis">
+          <span>{PANEL5_LEAD_TIME_DAYS_CAP} days — bad (red)</span>
           <span>0 days — good (green)</span>
-          <span>30 days — bad (red)</span>
         </div>
       </div>
 
       <p className="p5-leadtime-sweet-spot">
-        Sweet spot: team <strong>8–12</strong> people, automation{' '}
-        <strong>70–85%</strong> (optimal band for this model).
+        Team baseline (0% automation), then ×{PANEL5_LEAD_TIME_VALUE_MULTIPLIER}: ~<strong>20</strong>{' '}
+        days at 2 engineers, ~<strong>4</strong> at 10, ~<strong>2</strong> at 30 — piecewise
+        exponentials joined at <strong>n = 10</strong>. Higher automation multiplies by
+        auto_factor &lt; 1. Lead time scale: <strong>0–10</strong> days (values above 10 are
+        capped for display).
       </p>
     </section>
   )
 }
 
 /**
- * Deploys/month: 55 × team_factor × auto_factor
- * team_factor = exp(−0.012 × (team_size − 10)²)
- * auto_factor = ln(1 + automation% × 1.5) / ln(151)
- * At 100% automation auto_factor = 1. At 70%, auto_factor ≈ ln(106)/ln(151) ≈ 0.88
- * (spec often cites ~80% of max gain at 70% as a rule-of-thumb; the curve above 70%
- * flattens as marginal automation gains shrink.)
+ * Deploys/month: team_baseline(n) × auto_factor. Joint at n = 10 (inflection).
+ * At 100% automation (auto_factor = 1): n=2 → ~4, n=10 → ~10, n=30 → ~15.
+ *   n ∈ [2, 10]: 4 × exp(k₁ × (n − 2)), k₁ = ln(2.5) / 8.
+ *   n ∈ [10, 30]: 10 × exp(k₂ × (n − 10)), k₂ = ln(1.5) / 20.
+ * auto_factor = ln(1 + automation% × 1.5) / ln(151) (0 at 0% automation, 1 at 100%).
  */
+const PANEL5_DEPFREQ_TEAM_SLIDER_MIN = 2
+const PANEL5_DEPFREQ_TEAM_SLIDER_MAX = 30
+const PANEL5_DEPFREQ_JOIN_TEAM = 10
+const PANEL5_DEPFREQ_K_EARLY = Math.log(2.5) / 8
+const PANEL5_DEPFREQ_K_LATE = Math.log(1.5) / 20
+/** Colour bar maps deploys to 1–20 / month (marker uses this span). */
+const PANEL5_DEPFREQ_SPECTRUM_MIN = 1
+const PANEL5_DEPFREQ_SPECTRUM_MAX = 20
+
+function panel5DeployFreqTeamBaseline(teamSize) {
+  const n = Math.min(
+    PANEL5_DEPFREQ_TEAM_SLIDER_MAX,
+    Math.max(PANEL5_DEPFREQ_TEAM_SLIDER_MIN, teamSize),
+  )
+  const n0 = PANEL5_DEPFREQ_JOIN_TEAM
+  if (n <= n0) {
+    return 4 * Math.exp(PANEL5_DEPFREQ_K_EARLY * (n - 2))
+  }
+  return 10 * Math.exp(PANEL5_DEPFREQ_K_LATE * (n - n0))
+}
+
 function panel5DeployFreqPerMonthRaw(teamSize, automationPct) {
-  const teamFactor = Math.exp(-0.012 * (teamSize - 10) ** 2)
+  const base = panel5DeployFreqTeamBaseline(teamSize)
   const autoFactor =
     Math.log(1 + automationPct * 1.5) / Math.log(151)
-  return 55 * teamFactor * autoFactor
+  return base * autoFactor
 }
 
 function panel5DeployFreqPerMonthClamped(teamSize, automationPct) {
   return Math.min(
-    60,
+    PANEL5_DEPFREQ_SPECTRUM_MAX,
     Math.max(0, panel5DeployFreqPerMonthRaw(teamSize, automationPct)),
   )
 }
 
-const PANEL5_DEPFREQ_SPECTRUM_MAX = 60
-
 function Panel5DeployFrequencySurface({ teamSize, automationPct }) {
   const rawDeploys = panel5DeployFreqPerMonthRaw(teamSize, automationPct)
   const deploys = panel5DeployFreqPerMonthClamped(teamSize, automationPct)
-  const teamFactor = Math.exp(-0.012 * (teamSize - 10) ** 2)
+  const teamBaseline = panel5DeployFreqTeamBaseline(teamSize)
   const autoFactor =
     Math.log(1 + automationPct * 1.5) / Math.log(151)
   const autoFactorAt70 =
     Math.log(1 + 70 * 1.5) / Math.log(151)
+  const spectrumSpan =
+    PANEL5_DEPFREQ_SPECTRUM_MAX - PANEL5_DEPFREQ_SPECTRUM_MIN
   const onSpectrum = Math.min(
     100,
-    Math.max(0, (deploys / PANEL5_DEPFREQ_SPECTRUM_MAX) * 100),
+    Math.max(
+      0,
+      ((deploys - PANEL5_DEPFREQ_SPECTRUM_MIN) / spectrumSpan) * 100,
+    ),
   )
 
   return (
@@ -2619,7 +2684,9 @@ function Panel5DeployFrequencySurface({ teamSize, automationPct }) {
       </p>
 
       <p className="p5-deployfreq-check" aria-label="Model check">
-        Check: 55 × {teamFactor.toFixed(4)} (team_factor) ×{' '}
+        Check: {teamBaseline.toFixed(2)} (team baseline at 100% automation: 4·e
+        <sup>{PANEL5_DEPFREQ_K_EARLY.toFixed(3)}(n−2)</sup> for n ≤ 10, else 10·e
+        <sup>{PANEL5_DEPFREQ_K_LATE.toFixed(3)}(n−10)</sup>) ×{' '}
         {autoFactor.toFixed(4)} (auto_factor) ≈{' '}
         <strong>{rawDeploys.toFixed(1)}</strong> deploys/month before capping. At
         70% automation, auto_factor ≈ {autoFactorAt70.toFixed(3)} (
@@ -2628,8 +2695,8 @@ function Panel5DeployFrequencySurface({ teamSize, automationPct }) {
 
       <div className="p5-deployfreq-1d-legend">
         <p className="p5-deployfreq-1d-title">
-          Colour bar: deployment frequency (0–{PANEL5_DEPFREQ_SPECTRUM_MAX}{' '}
-          deploys/month)
+          Colour bar: deployment frequency ({PANEL5_DEPFREQ_SPECTRUM_MIN}–
+          {PANEL5_DEPFREQ_SPECTRUM_MAX} deploys/month)
         </p>
         <div
           className="p5-deployfreq-1d-track"
@@ -2642,7 +2709,7 @@ function Panel5DeployFrequencySurface({ teamSize, automationPct }) {
           />
         </div>
         <div className="p5-deployfreq-1d-axis">
-          <span>0 — low (dark blue)</span>
+          <span>{PANEL5_DEPFREQ_SPECTRUM_MIN} — low (dark blue)</span>
           <span>
             {PANEL5_DEPFREQ_SPECTRUM_MAX} — high (bright yellow)
           </span>
@@ -2650,40 +2717,61 @@ function Panel5DeployFrequencySurface({ teamSize, automationPct }) {
       </div>
 
       <p className="p5-deployfreq-sweet-spot">
-        Sweet spot: team <strong>8–12</strong> people, automation{' '}
-        <strong>65–85%</strong> (highlighted as the favourable band in the full
-        surface view; here, same band for reference).
+        Team baseline at <strong>100%</strong> automation: ~<strong>4</strong> deploys/mo
+        at 2 engineers, ~<strong>10</strong> at 10, ~<strong>15</strong> at 30 — piecewise
+        exponentials joined at <strong>n = 10</strong>. Lower automation scales by
+        auto_factor (0 at 0% automation). Sweet spot: automation{' '}
+        <strong>65–85%</strong> (same band as the full surface view).
       </p>
     </section>
   )
 }
 
 /**
- * Restore time (hours): 20 × team_penalty × auto_factor
- * team_penalty = 1 + 0.018 × (team_size − 10)²
- * auto_factor = 1 − 0.70 × ln(1 + automation%) / ln(101)
- * At 100% automation, auto_factor = 0.30 (~70% reduction vs 0% for same team).
+ * Restore time (hours): team_baseline(n) × auto_factor. Joint at n = 10 (inflection).
+ * At 0% automation (auto_factor = 1): n=2 → ~6 h, n=10 → ~0.5 h, n=30 → ~0.3 h.
+ *   n ∈ [2, 10]: 6 × exp(−k₁ × (n − 2)), k₁ = ln(12) / 8 so T(10) = 0.5.
+ *   n ∈ [10, 30]: 0.5 × exp(−k₂ × (n − 10)), k₂ = ln(5/3) / 20 so T(30) = 0.3.
+ * auto_factor = 1 − 0.70 × ln(1 + automation%) / ln(101).
  */
+const PANEL5_RESTORE_TEAM_SLIDER_MIN = 2
+const PANEL5_RESTORE_TEAM_SLIDER_MAX = 30
+const PANEL5_RESTORE_JOIN_TEAM = 10
+const PANEL5_RESTORE_K_DECAY_EARLY = Math.log(12) / 8
+const PANEL5_RESTORE_K_DECAY_LATE = Math.log(5 / 3) / 20
+/** Colour bar / clamp span (0–3 h; shorter restore = better, toward green). */
+const PANEL5_RESTORE_SPECTRUM_MAX = 3
+
+function panel5RestoreTimeTeamHoursBaseline(teamSize) {
+  const n = Math.min(
+    PANEL5_RESTORE_TEAM_SLIDER_MAX,
+    Math.max(PANEL5_RESTORE_TEAM_SLIDER_MIN, teamSize),
+  )
+  const n0 = PANEL5_RESTORE_JOIN_TEAM
+  if (n <= n0) {
+    return 6 * Math.exp(-PANEL5_RESTORE_K_DECAY_EARLY * (n - 2))
+  }
+  return 0.5 * Math.exp(-PANEL5_RESTORE_K_DECAY_LATE * (n - n0))
+}
+
 function panel5RestoreTimeHoursRaw(teamSize, automationPct) {
-  const teamPenalty = 1 + 0.018 * (teamSize - 10) ** 2
+  const base = panel5RestoreTimeTeamHoursBaseline(teamSize)
   const autoFactor =
     1 - (0.7 * Math.log(1 + automationPct)) / Math.log(101)
-  return 20 * teamPenalty * autoFactor
+  return base * autoFactor
 }
 
 function panel5RestoreTimeHoursClamped(teamSize, automationPct) {
   return Math.min(
-    24,
+    PANEL5_RESTORE_SPECTRUM_MAX,
     Math.max(0, panel5RestoreTimeHoursRaw(teamSize, automationPct)),
   )
 }
 
-const PANEL5_RESTORE_SPECTRUM_MAX = 24
-
 function Panel5RestoreTimeSurface({ teamSize, automationPct }) {
   const rawHours = panel5RestoreTimeHoursRaw(teamSize, automationPct)
   const hours = panel5RestoreTimeHoursClamped(teamSize, automationPct)
-  const teamPenalty = 1 + 0.018 * (teamSize - 10) ** 2
+  const teamBaseline = panel5RestoreTimeTeamHoursBaseline(teamSize)
   const autoFactor =
     1 - (0.7 * Math.log(1 + automationPct)) / Math.log(101)
   const autoFactorAt70 =
@@ -2711,12 +2799,14 @@ function Panel5RestoreTimeSurface({ teamSize, automationPct }) {
       </p>
 
       <p className="p5-restore-check" aria-label="Model check">
-        Check: 20 × {teamPenalty.toFixed(4)} (team_penalty) ×{' '}
+        Check: {teamBaseline.toFixed(3)} (team baseline at 0% automation: 6·e
+        <sup>−{PANEL5_RESTORE_K_DECAY_EARLY.toFixed(3)}(n−2)</sup> for n ≤ 10, else
+        0.5·e
+        <sup>−{PANEL5_RESTORE_K_DECAY_LATE.toFixed(3)}(n−10)</sup>) ×{' '}
         {autoFactor.toFixed(4)} (auto_factor) ≈{' '}
-        <strong>{rawHours.toFixed(1)}</strong> hours before capping. At 70%
+        <strong>{rawHours.toFixed(2)}</strong> hours before capping. At 70%
         automation, auto_factor ≈ {autoFactorAt70.toFixed(3)}; at 100%,{' '}
-        {(1 - 0.7).toFixed(2)} (70% time reduction vs 0% automation for the same
-        team size).
+        {(1 - 0.7).toFixed(2)}.
       </p>
 
       <div className="p5-restore-1d-legend">
@@ -2742,44 +2832,71 @@ function Panel5RestoreTimeSurface({ teamSize, automationPct }) {
       </div>
 
       <p className="p5-restore-sweet-spot">
-        Sweet spot: team <strong>8–12</strong> people, automation{' '}
-        <strong>70–90%</strong> (favourable band in the full surface view; same band
-        for reference here).
+        Team baseline at <strong>0%</strong> automation: ~<strong>6</strong> h at 2
+        engineers, ~<strong>0.5</strong> h at 10, ~<strong>0.3</strong> h at 30 — piecewise
+        exponentials joined at <strong>n = 10</strong>. Higher automation multiplies by
+        auto_factor &lt; 1. Restore time scale: <strong>0–3</strong> h (values above 3 are
+        capped for display). Sweet spot: automation <strong>70–90%</strong> (same band as the
+        full surface view).
       </p>
     </section>
   )
 }
 
 /**
- * Failure rate (%): 28 × team_penalty × auto_factor
- * team_penalty = 1 + 0.014 × (team_size − 10)²
- * auto_factor = 1 − 0.75 × √(automation% / 100)
- * At 100% automation, auto_factor = 0.25.
+ * Change failure rate (%): team_baseline(n) × auto_factor × PANEL5_CFR_VALUE_MULTIPLIER.
+ * Joint at team size n = 10. Core baseline at 0% automation: n=2 → ~20%, n=10 → ~5%, n=30 → ~2%
+ * (then ×2 for displayed model).
+ *   n ∈ [2, 10]: 20 × exp(−k₁ × (n − 2)), k₁ = ln(4) / 8.
+ *   n ∈ [10, 30]: 5 × exp(−k₂ × (n − 10)), k₂ = ln(2.5) / 20.
+ * auto_factor = 1 − 0.75 × √(automation% / 100) (1 at 0%, 0.25 at 100%).
  */
+const PANEL5_CFR_TEAM_SLIDER_MIN = 2
+const PANEL5_CFR_TEAM_SLIDER_MAX = 30
+const PANEL5_CFR_JOIN_TEAM = 10
+const PANEL5_CFR_K_DECAY_EARLY = Math.log(4) / 8
+const PANEL5_CFR_K_DECAY_LATE = Math.log(2.5) / 20
+/** Colour bar / clamp span (0–20%). */
+const PANEL5_CFR_SPECTRUM_MAX = 20
+/** Applied after baseline × automation (currently 2×). */
+const PANEL5_CFR_VALUE_MULTIPLIER = 2
+
 function panel5ChangeFailureAutoFactor(automationPct) {
   const p = Math.max(0, Math.min(100, automationPct)) / 100
   return 1 - 0.75 * Math.sqrt(p)
 }
 
+function panel5ChangeFailureTeamPctBaseline(teamSize) {
+  const n = Math.min(
+    PANEL5_CFR_TEAM_SLIDER_MAX,
+    Math.max(PANEL5_CFR_TEAM_SLIDER_MIN, teamSize),
+  )
+  const n0 = PANEL5_CFR_JOIN_TEAM
+  if (n <= n0) {
+    return 20 * Math.exp(-PANEL5_CFR_K_DECAY_EARLY * (n - 2))
+  }
+  return 5 * Math.exp(-PANEL5_CFR_K_DECAY_LATE * (n - n0))
+}
+
 function panel5ChangeFailurePctRaw(teamSize, automationPct) {
-  const teamPenalty = 1 + 0.014 * (teamSize - 10) ** 2
+  const base = panel5ChangeFailureTeamPctBaseline(teamSize)
   const autoFactor = panel5ChangeFailureAutoFactor(automationPct)
-  return 28 * teamPenalty * autoFactor
+  return base * autoFactor * PANEL5_CFR_VALUE_MULTIPLIER
 }
 
 function panel5ChangeFailurePctClamped(teamSize, automationPct) {
   return Math.min(
-    30,
+    PANEL5_CFR_SPECTRUM_MAX,
     Math.max(0, panel5ChangeFailurePctRaw(teamSize, automationPct)),
   )
 }
 
-const PANEL5_CFR_SPECTRUM_MAX = 30
-
 function Panel5ChangeFailureSurface({ teamSize, automationPct }) {
   const rawPct = panel5ChangeFailurePctRaw(teamSize, automationPct)
   const pct = panel5ChangeFailurePctClamped(teamSize, automationPct)
-  const teamPenalty = 1 + 0.014 * (teamSize - 10) ** 2
+  const teamBaseline = panel5ChangeFailureTeamPctBaseline(teamSize)
+  const teamScaled =
+    teamBaseline * PANEL5_CFR_VALUE_MULTIPLIER
   const autoFactor = panel5ChangeFailureAutoFactor(automationPct)
   const autoFactorAt70 = panel5ChangeFailureAutoFactor(70)
   const onSpectrumGoodEnd = Math.min(
@@ -2805,7 +2922,10 @@ function Panel5ChangeFailureSurface({ teamSize, automationPct }) {
       </p>
 
       <p className="p5-cfr-check" aria-label="Model check">
-        Check: 28 × {teamPenalty.toFixed(4)} (team_penalty) ×{' '}
+        Check: {teamScaled.toFixed(2)} ({PANEL5_CFR_VALUE_MULTIPLIER} × team baseline at
+        0% automation: 20·e
+        <sup>−{PANEL5_CFR_K_DECAY_EARLY.toFixed(3)}(n−2)</sup> for n ≤ 10, else 5·e
+        <sup>−{PANEL5_CFR_K_DECAY_LATE.toFixed(3)}(n−10)</sup>) ×{' '}
         {autoFactor.toFixed(4)} (auto_factor) ≈{' '}
         <strong>{rawPct.toFixed(2)}</strong>% before capping. At 70% automation,
         auto_factor ≈ {autoFactorAt70.toFixed(3)}; at 100%,{' '}
@@ -2835,9 +2955,12 @@ function Panel5ChangeFailureSurface({ teamSize, automationPct }) {
       </div>
 
       <p className="p5-cfr-sweet-spot">
-        Sweet spot: team <strong>8–12</strong> people, automation{' '}
-        <strong>65–85%</strong> (favourable band in the full surface view; same band
-        for reference here).
+        After ×{PANEL5_CFR_VALUE_MULTIPLIER}, team curve at <strong>0%</strong> automation:
+        ~<strong>40</strong>% at 2 engineers, ~<strong>10</strong>% at 10, ~<strong>4</strong>% at
+        30 — piecewise exponentials joined at <strong>n = 10</strong>. Higher automation
+        multiplies by auto_factor &lt; 1. Display spectrum stays <strong>0–20</strong>% (raw
+        values above 20% show a cap note). Sweet spot: automation <strong>65–85%</strong>{' '}
+        (same band as the full surface view).
       </p>
     </section>
   )

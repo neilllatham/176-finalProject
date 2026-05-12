@@ -2036,11 +2036,12 @@
   height: 14px;
   border-radius: 7px;
   border: 1px solid var(--border);
+  /* Bad (long lead time) left → good (short) right */
   background: linear-gradient(
     90deg,
-    rgb(34, 160, 80) 0%,
+    rgb(224, 58, 45) 0%,
     rgb(230, 200, 70) 50%,
-    rgb(224, 58, 45) 100%
+    rgb(34, 160, 80) 100%
   );
 }
 
