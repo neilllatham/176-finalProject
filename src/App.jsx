@@ -1483,7 +1483,7 @@ const PANEL4_DECISION_STRUCTURE_MERMAID = `flowchart TD
       CIO["CIO — Primary Owner<br/>Full AI & Cloud Programme<br/>Chairs Cloud Migration Board | Fortnightly"]:::oversight
     end
     style sponsor_panel fill:#f8f4fc,stroke:#6C3483,stroke-width:2px,color:#263238
-    style CIO stroke:#C62828,stroke-width:3px
+    style CIO stroke:#FFCC80,stroke-width:3px
 
     subgraph delivery_leads ["Delivery leadership tier"]
       direction LR
@@ -1552,7 +1552,7 @@ const PANEL4_MERMAID_NODE_NOTES = {
   CIO: {
     title: 'CIO — Primary Owner',
     paragraphs: [
-      'The CIO (purple, in the co-sponsor panel — same legend family as CCO, CRO, and COO) is the single primary owner of the full programme — both the cloud migration and the AI implementation. The chart places the CIO in the same bordered tier as the CCO, CRO, and COO (peers at one level); there are no direct arrows from CCO or CRO to the CIO. The CIO receives the programme mandate from the ESC. Below that, the CIO directs three roles shown together in the “Delivery leadership tier”: Head of Customer Service, Head of AI, and Lead Cloud Architect — Head of AI and Lead Cloud Architect receive direct CIO arrows (programme ownership and architecture guidelines). The CIO chairs the Cloud Migration Board on a fortnightly basis.',
+      'The CIO (purple, in the co-sponsor panel — same legend family as CCO, CRO, and COO) is shown with a light orange border on the chart; no other node uses that outline. This role is the single primary owner of the full programme — both the cloud migration and the AI implementation. The chart places the CIO in the same bordered tier as the CCO, CRO, and COO (peers at one level); there are no direct arrows from CCO or CRO to the CIO. The CIO receives the programme mandate from the ESC. Below that, the CIO directs three roles shown together in the “Delivery leadership tier”: Head of Customer Service, Head of AI, and Lead Cloud Architect — Head of AI and Lead Cloud Architect receive direct CIO arrows (programme ownership and architecture guidelines). The CIO chairs the Cloud Migration Board on a fortnightly basis.',
     ],
   },
   LCA: {
