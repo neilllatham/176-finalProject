@@ -1,5 +1,12 @@
-# Build and deploy the Vite app to GitHub Pages when you push to main.
-# After the first run: Repo → Settings → Pages → Build and deployment → Source: GitHub Actions.
+# Build and deploy the Vite app to GitHub Pages.
+#
+# ONE-TIME SETUP (otherwise you get a 404 at *.github.io):
+# 1. Repo → Settings → Pages → Build and deployment
+# 2. Set "Source" to "GitHub Actions" (NOT "Deploy from a branch").
+# 3. Push to main or run this workflow manually from the Actions tab.
+#
+# Your site URL is NOT github.com/... — it is a *.github.io address, e.g.:
+#   https://neilllatham.github.io/176-finalProject/
 name: Deploy to GitHub Pages
 
 on:
@@ -14,23 +21,26 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
+
       - run: npm ci
+
       - name: Build
         run: npm run build
         env:
-          # Project site URL: https://<user>.github.io/<repo>/
           VITE_BASE_URL: /${{ github.event.repository.name }}/
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -38,6 +48,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
